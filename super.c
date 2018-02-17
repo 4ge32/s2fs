@@ -1,5 +1,6 @@
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/buffer_head.h>
 
 #include "sifs.h"
 
@@ -26,10 +27,41 @@ static void destroy_inodecache(void)
 
 static int sifs_fill_super(struct super_block *sb, void *data, int silent)
 {
+	struct sifs_sb *si_sb;
+	struct sifs_sb_info *sbi;
 	struct buffer_head *bh;
+	int ret = -EINVAL;
 
 	bh = sb_bread(sb, SIFS_SUPER_BLOCK_NUMBER);
+	if (!bh)
+		goto out_bad_sb;
+
+	si_sb = (struct sifs_sb *)bh->b_data;
+
+	printk(KERN_INFO "The magic number obtained in disk is: [%llx]\n",
+			si_sb->magic);
+
+	if (unlikely(si_sb->magic != SIFS_MAGIC)) {
+		printk(KERN_ERR "MAGIC NUMBER MISMATCH\n");
+		brelse(bh);
+		return ret;
+	}
+
+	return ret;
+
+	sbi = kzalloc(sizeof(struct sifs_sb_info), GFP_KERNEL);
+
+	sbi->s_bh = bh;
+	sbi->si_sb = si_sb;
+	sb->s_fs_info = sbi;
+
+	sb->s_magic = SIFS_MAGIC;
+
 	return 0;
+out_bad_sb:
+	printk("sifs: unable to read superblock\n");
+	return ret;
+
 }
 
 static struct dentry *sifs_mount(struct file_system_type *fs_type,
@@ -68,6 +100,7 @@ out1:
 
 static void __exit exit_sifs_fs(void)
 {
+	unregister_filesystem(&sifs_fs_type);
 	destroy_inodecache();
 }
 
