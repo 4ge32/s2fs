@@ -1,16 +1,19 @@
-#include <linux/fs.h>
-
 #define SIFS_MAGIC 0xEFF10
 #define BLOCK_DEFAULT_SIZE 512
 #define SIFS_FILENAME_MAX_LEN 256
 
 #define SIFS_START_INO 10
+#define SIFS_ROOTDIR_INODE_NUMBER 1
+#define SIFS_INODE_STORE_BLOKC_NUMBER 1
 
 #define SIFS_SUPER_BLOCK_NUMBER 0
 
-struct sifs_inode_info {
+#define SIFS_ROOTDIR_DATABLOCK_NUMBER 4
+
+struct sifs_inode {
 	mode_t mode;
 	uint64_t inode_no;
+	uint64_t data_block_number;
 };
 
 
@@ -21,6 +24,7 @@ struct sifs_sb {
 	uint64_t version;
 	uint64_t magic;
 	uint64_t block_size;
+	uint64_t inodes;
 	char padding[488];
 };
 
@@ -34,3 +38,6 @@ struct sifs_sb_info {
 	struct buffer_head *s_bh;
 	struct sifs_sb *si_sb;
 };
+
+extern const struct file_operations sifs_dir_ops;
+extern const struct inode_operations sifs_inode_ops;

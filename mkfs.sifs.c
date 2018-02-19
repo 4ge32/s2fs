@@ -21,6 +21,21 @@ static void write_superblock(int fd)
 	}
 }
 
+static void write_root_inode(int fd)
+{
+	ssize_t ret;
+	struct sifs_inode root_inode;
+
+	root_inode.mode = S_IFDIR;
+	root_inode.inode_no = SIFS_ROOTDIR_INODE_NUMBER;
+
+	ret = write(fd, &root_inode, sizeof(root_inode));
+	if (ret != sizeof(root_inode)) {
+		printf("The inode store was not write properly.\n");
+	}
+
+}
+
 int main(int argc, char *argv[])
 {
 	int fd;
@@ -37,6 +52,7 @@ int main(int argc, char *argv[])
 	}
 
 	write_superblock(fd);
+	write_root_inode(fd);
 
 	return 0;
 }

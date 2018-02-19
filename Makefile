@@ -6,7 +6,7 @@ KERN_DIR  = /lib/modules/$(shell uname -r)/build
 BUILD_DIR = $(shell pwd)
 
 obj-m := sifs.o
-sifs-y := super.o
+sifs-y := super.o dir.o inode.o
 
 PROG = mkfs.sifs.c
 
@@ -16,4 +16,4 @@ all:
 mkfs.sifs: $(PROG)
 	$(CC) $(CFLAGS) -o $@ $(PROG)
 clean:
-	rm -rf *.o *.ko *.mod.c *.symvers *.order *.tmp_versions
+	rm -rf *.o *.ko *.mod.c *.symvers *.order *.tmp_versions mkfs.sifs
