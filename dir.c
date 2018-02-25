@@ -11,6 +11,3 @@ const struct file_operations sifs_dir_ops = {
 	.read           = generic_read_dir,
 	.iterate_shared = sifs_readdir,
 };
-
-const struct inode_operations sifs_inode_ops = {
-};

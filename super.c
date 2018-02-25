@@ -7,6 +7,16 @@
 
 static struct kmem_cache *sifs_inode_cachep;
 
+static struct dentry *sifs_lookup(struct inode *parent_inode, struct dentry *child_dentry,
+				  unsigned int flags)
+{
+	return NULL;
+}
+
+const struct inode_operations sifs_inode_ops = {
+	.lookup = sifs_lookup,
+};
+
 static const struct super_operations sifs_sops = {
 };
 
@@ -36,7 +46,7 @@ struct sifs_inode *sifs_get_inode(struct super_block *sb, uint64_t inode_no)
 	struct sifs_inode *si_inode;
 	struct sifs_inode *inode_buf = NULL;
 
-	bh = sb_bread(sb, SIFS_INODE_STORE_BLOKC_NUMBER);
+	bh = sb_bread(sb, SIFS_INODE_STORE_BLOCK_NUMBER);
 	si_inode = (struct sifs_inode *)bh->b_data;
 
 	for (ino = 0; ino < si_sb->inodes; ino++) {
@@ -66,6 +76,7 @@ static int sifs_fill_super(struct super_block *sb, void *data, int silent)
 
 	printk(KERN_INFO "The magic number obtained in disk is: [%llx]\n",
 			si_sb->magic);
+	printk(KERN_INFO "There are %llu inodes\n", si_sb->inodes);
 
 	if (unlikely(si_sb->magic != SIFS_MAGIC))
 		goto mismatch;
@@ -74,6 +85,7 @@ static int sifs_fill_super(struct super_block *sb, void *data, int silent)
 
 	sbi->s_bh = bh;
 	sbi->si_sb = si_sb;
+	sbi->inodes = si_sb->inodes;
 
 	sb->s_fs_info = sbi;
 	sb->s_magic = SIFS_MAGIC;
@@ -82,10 +94,11 @@ static int sifs_fill_super(struct super_block *sb, void *data, int silent)
 
 	root_inode = new_inode(sb);
 	root_inode->i_ino = SIFS_ROOTDIR_INODE_NUMBER;
-	root_inode->i_mode = S_IFDIR;
+	inode_init_owner(root_inode, NULL, S_IFDIR);
 	root_inode->i_sb = sb;
 	root_inode->i_op = &sifs_inode_ops;
 	root_inode->i_fop = &sifs_dir_ops;
+	root_inode->i_private = sifs_get_inode(sb, SIFS_ROOTDIR_INODE_NUMBER);
 
 	if (!S_ISDIR(root_inode->i_mode)) {
 		iput(root_inode);
