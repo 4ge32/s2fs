@@ -1,21 +1,35 @@
+/* ISSUE 1:
+ * How do I change BLOCK SIZE?
+ * sb_bread will be failure when block_size set except 4096.
+*/
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/buffer_head.h>
-
 #include "sifs.h"
-
 
 static struct kmem_cache *sifs_inode_cachep;
 
-static struct dentry *sifs_lookup(struct inode *parent_inode, struct dentry *child_dentry,
-				  unsigned int flags)
+struct sifs_inode *sifs_get_inode(struct super_block *sb, uint64_t inode_no)
 {
-	return NULL;
-}
+	int ino;
+	struct sifs_sb *si_sb = sb->s_fs_info;
+	struct buffer_head *bh;
+	struct sifs_inode *si_inode;
+	struct sifs_inode *inode_buf = NULL;
 
-const struct inode_operations sifs_inode_ops = {
-	.lookup = sifs_lookup,
-};
+	bh = sb_bread(sb, SIFS_INODE_STORE_BLOCK_NUMBER);
+	si_inode = (struct sifs_inode *)bh->b_data;
+
+	for (ino = 1; ino <= si_sb->inodes; ino++) {
+		if (si_inode->inode_no == inode_no) {
+			inode_buf = kmem_cache_alloc(sifs_inode_cachep, GFP_KERNEL);
+			memcpy(inode_buf, si_inode, sizeof(*inode_buf));
+		}
+		si_inode++;
+	}
+	brelse(bh);
+	return inode_buf;
+}
 
 static const struct super_operations sifs_sops = {
 };
@@ -38,28 +52,6 @@ static void destroy_inodecache(void)
 	kmem_cache_destroy(sifs_inode_cachep);
 }
 
-struct sifs_inode *sifs_get_inode(struct super_block *sb, uint64_t inode_no)
-{
-	int ino;
-	struct sifs_sb *si_sb = sb->s_fs_info;
-	struct buffer_head *bh;
-	struct sifs_inode *si_inode;
-	struct sifs_inode *inode_buf = NULL;
-
-	bh = sb_bread(sb, SIFS_INODE_STORE_BLOCK_NUMBER);
-	si_inode = (struct sifs_inode *)bh->b_data;
-
-	for (ino = 0; ino < si_sb->inodes; ino++) {
-		if (si_inode->inode_no == inode_no) {
-			inode_buf = kmem_cache_alloc(sifs_inode_cachep, GFP_KERNEL);
-			memcpy(inode_buf, si_inode, sizeof(*inode_buf));
-		}
-		si_inode++;
-	}
-	brelse(bh);
-	return inode_buf;
-}
-
 static int sifs_fill_super(struct super_block *sb, void *data, int silent)
 {
 	struct sifs_sb *si_sb;
@@ -67,6 +59,7 @@ static int sifs_fill_super(struct super_block *sb, void *data, int silent)
 	struct buffer_head *bh;
 	struct inode *root_inode;
 	int ret = -EPERM;
+
 
 	bh = sb_bread(sb, SIFS_SUPER_BLOCK_NUMBER);
 	if (!bh)
@@ -79,7 +72,12 @@ static int sifs_fill_super(struct super_block *sb, void *data, int silent)
 	printk(KERN_INFO "There are %llu inodes\n", si_sb->inodes);
 
 	if (unlikely(si_sb->magic != SIFS_MAGIC))
-		goto mismatch;
+		goto magic_mismatch;
+
+	if (unlikely(si_sb->block_size != BLOCK_DEFAULT_SIZE))
+		goto bsize_mismatch;
+	printk(KERN_INFO "block size is %llu\n", si_sb->block_size);
+	printk(KERN_INFO "block size is %lu\n", sb->s_blocksize);
 
 	sbi = kzalloc(sizeof(struct sifs_sb_info), GFP_KERNEL);
 
@@ -89,7 +87,7 @@ static int sifs_fill_super(struct super_block *sb, void *data, int silent)
 
 	sb->s_fs_info = sbi;
 	sb->s_magic = SIFS_MAGIC;
-	sb->s_maxbytes = BLOCK_DEFAULT_SIZE;
+	sb->s_blocksize = BLOCK_DEFAULT_SIZE;
 	sb->s_op = &sifs_sops;
 
 	root_inode = new_inode(sb);
@@ -115,7 +113,11 @@ static int sifs_fill_super(struct super_block *sb, void *data, int silent)
 
 	printk(KERN_INFO "fill superblock successfully\n");
 	return 0;
-mismatch:
+
+bsize_mismatch:
+	printk(KERN_ERR "BLOCK SIZE MISMATCH\n");
+	goto out;
+magic_mismatch:
 	printk(KERN_ERR "MAGIC NUMBER MISMATCH\n");
 	goto out;
 release:

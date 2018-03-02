@@ -12,6 +12,7 @@ static void write_superblock(int fd)
 	struct sifs_sb sb = {
 		.version = 0,
 		.magic = SIFS_MAGIC,
+		.inodes = 1,
 		.block_size = BLOCK_DEFAULT_SIZE,
 	};
 
@@ -51,8 +52,12 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	lseek(fd, 0, SEEK_SET);
+
 	write_superblock(fd);
 	write_root_inode(fd);
+	//
+	close(fd);
 
 	return 0;
 }

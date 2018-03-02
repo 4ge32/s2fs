@@ -1,16 +1,18 @@
 #define SIFS_MAGIC 0xEFF10
-#define BLOCK_DEFAULT_SIZE 512
+#define BLOCK_DEFAULT_SIZE 4096
 #define SIFS_FILENAME_MAX_LEN 256
 
 #define SIFS_START_INO 10
-#define SIFS_ROOTDIR_INODE_NUMBER 1
-#define SIFS_INODE_STORE_BLOCK_NUMBER 1
 
 #define SIFS_SUPER_BLOCK_NUMBER 0
+#define SIFS_INODE_STORE_BLOCK_NUMBER 1
+
+#define SIFS_ROOTDIR_INODE_NUMBER 1
 
 #define SIFS_ROOTDIR_DATABLOCK_NUMBER 4
 
 #define SIFS_FILE_MAXNUM 100
+
 
 struct sifs_dir_record {
 	char filename[SIFS_FILE_MAXNUM];
@@ -32,6 +34,8 @@ struct sifs_sb {
 	uint64_t block_size;
 	uint64_t inodes;
 	char padding[480];
+	char padding2[3084];
+	char padding3[496];
 };
 
 /*
@@ -48,3 +52,5 @@ struct sifs_sb_info {
 
 extern const struct file_operations sifs_dir_ops;
 extern const struct inode_operations sifs_inode_ops;
+
+struct sifs_inode *sifs_get_inode(struct super_block *sb, uint64_t inode_no);
