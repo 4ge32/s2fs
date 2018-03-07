@@ -6,7 +6,7 @@ KERN_DIR  = /lib/modules/$(shell uname -r)/build
 BUILD_DIR = $(shell pwd)
 
 obj-m := sifs.o
-sifs-y := super.o dir.o inode.o
+sifs-y := super.o dir.o inode.o file.o
 
 PROG = mkfs.sifs.c
 

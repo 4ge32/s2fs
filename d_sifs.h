@@ -38,26 +38,3 @@ struct sifs_sb {
 	char padding[4060];
 };
 
-/*
- * sifs super-block data in memory
- */
-struct sifs_sb_info {
-	uint64_t version;
-	uint64_t magic;
-	uint64_t block_size;
-	uint64_t inodes;
-	struct buffer_head *s_bh;
-	struct sifs_sb *si_sb;
-};
-
-extern const struct file_operations sifs_dir_ops;
-extern const struct file_operations sifs_file_ops;
-extern const struct inode_operations sifs_inode_ops;
-
-struct sifs_inode *sifs_get_inode(struct super_block *sb, uint64_t inode_no);
-struct inode *sifs_iget(struct super_block *sb, int ino);
-
-
-static inline struct sifs_inode *SIFS_INODE(struct inode *inode) {
-	return inode->i_private;
-}

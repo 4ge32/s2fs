@@ -7,29 +7,7 @@
 #include <linux/buffer_head.h>
 #include "sifs.h"
 
-static struct kmem_cache *sifs_inode_cachep;
-
-struct sifs_inode *sifs_get_inode(struct super_block *sb, uint64_t inode_no)
-{
-	int ino;
-	struct sifs_sb *si_sb = sb->s_fs_info;
-	struct buffer_head *bh;
-	struct sifs_inode *si_inode;
-	struct sifs_inode *inode_buf = NULL;
-
-	bh = sb_bread(sb, SIFS_INODE_STORE_BLOCK_NUMBER);
-	si_inode = (struct sifs_inode *)bh->b_data;
-
-	for (ino = 1; ino <= si_sb->inodes; ino++) {
-		if (si_inode->inode_no == inode_no) {
-			inode_buf = kmem_cache_alloc(sifs_inode_cachep, GFP_KERNEL);
-			memcpy(inode_buf, si_inode, sizeof(*inode_buf));
-		}
-		si_inode++;
-	}
-	brelse(bh);
-	return inode_buf;
-}
+struct kmem_cache *sifs_inode_cachep;
 
 static const struct super_operations sifs_sops = {
 };
@@ -97,10 +75,10 @@ static int sifs_fill_super(struct super_block *sb, void *data, int silent)
 	root_inode->i_op = &sifs_inode_ops;
 	root_inode->i_fop = &sifs_dir_ops;
 	root_inode->i_private = sifs_get_inode(sb, SIFS_ROOTDIR_INODE_NUMBER);
+	root_inode->i_mode = SIFS_INODE(root_inode)->mode;
 
 	if (!S_ISDIR(root_inode->i_mode)) {
 		iput(root_inode);
-		printk(KERN_ERR "___???___\n");
 		return -EPERM;
 	}
 
