@@ -9,7 +9,7 @@
 
 #define SIFS_ROOTDIR_INODE_NUMBER 1
 
-#define SIFS_ROOTDIR_DATABLOCK_NUMBER 4
+#define SIFS_ROOTDIR_DATABLOCK_NUMBER 3
 
 #define SIFS_FILE_MAXNUM 100
 
@@ -24,6 +24,7 @@ struct sifs_inode {
 	mode_t mode;
 	uint64_t inode_no;
 	uint64_t data_block_number;
+	uint64_t file_size;
 	uint64_t children_count;
 };
 

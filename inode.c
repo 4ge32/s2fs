@@ -31,12 +31,15 @@ struct inode *sifs_iget(struct super_block *sb, int ino)
 	struct inode *inode;
 	struct sifs_inode *si_inode;
 
+	//inode = iget_locked(sb, ino);
+
 	si_inode = sifs_get_inode(sb, ino);
 
 	inode = new_inode(sb);
 	inode->i_ino = ino;
 	inode->i_sb = sb;
 	inode->i_op = &sifs_inode_ops;
+	inode->i_size = si_inode->file_size;
 
 	if (S_ISDIR(si_inode->mode))
 		inode->i_fop = &sifs_dir_ops;
@@ -48,6 +51,8 @@ struct inode *sifs_iget(struct super_block *sb, int ino)
 	inode->i_atime = inode->i_mtime = inode->i_ctime =
 		current_time(inode);
 	inode->i_private = si_inode;
+
+	//unlock_new_inode(inode);
 
 	return inode;
 }

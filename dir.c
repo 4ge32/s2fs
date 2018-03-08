@@ -67,12 +67,16 @@ static struct dentry *sifs_lookup(struct inode *parent_inode, struct dentry *chi
 
 	bh = sb_bread(sb, SIFS_INODE_STORE_BLOCK_NUMBER + 1);
 	record = (struct sifs_dir_record *)bh->b_data;
+	printk("%s\n", record->filename);
 
 	for (i = 0; i < parent->children_count; i++) {
+		printk("rec: %s, child: %lld", record->filename, parent->children_count);
 		if (!strcmp(record->filename, child_dentry->d_name.name)) {
 			struct inode *inode = sifs_iget(sb, record->inode_no);
 			inode_init_owner(inode, parent_inode, SIFS_INODE(inode)->mode);
 			d_add(child_dentry, inode);
+			printk("FOUND\n");
+			printk("LOOKUP:%lld", SIFS_INODE(inode)->file_size);
 			return NULL;
 		}
 		record++;
