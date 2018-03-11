@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <fcntl.h>
 
-#include "d_sifs.h"
+#include "sifs.h"
 
 #define NEXT 1
 #define END  0
