@@ -54,38 +54,3 @@ out:
 const struct file_operations sifs_dir_ops = {
 	.iterate        = sifs_readdir,
 };
-
-static struct dentry *sifs_lookup(struct inode *parent_inode, struct dentry *child_dentry,
-				  unsigned int flags)
-{
-	struct sifs_inode *parent = SIFS_INODE(parent_inode);
-	struct super_block *sb = parent_inode->i_sb;
-	struct buffer_head *bh;
-	struct sifs_dir_record *record;
-	int i;
-	printk("LOOKUP\n");
-
-	bh = sb_bread(sb, SIFS_INODE_STORE_BLOCK_NUMBER + 1);
-	record = (struct sifs_dir_record *)bh->b_data;
-	printk("%s\n", record->filename);
-
-	for (i = 0; i < parent->children_count; i++) {
-		printk("rec: %s, child: %lld", record->filename, parent->children_count);
-		if (!strcmp(record->filename, child_dentry->d_name.name)) {
-			struct inode *inode = sifs_iget(sb, record->inode_no);
-			inode_init_owner(inode, parent_inode, SIFS_INODE(inode)->mode);
-			d_add(child_dentry, inode);
-			printk("FOUND\n");
-			printk("LOOKUP:%lld", SIFS_INODE(inode)->file_size);
-			return NULL;
-		}
-		record++;
-	}
-
-	printk("NOT FOUND\n");
-	return NULL;
-}
-
-const struct inode_operations sifs_inode_ops = {
-	.lookup = sifs_lookup,
-};

@@ -30,7 +30,7 @@ static ssize_t write_root_inode(int fd)
 	ssize_t ret;
 	struct sifs_inode root_inode;
 
-	root_inode.mode = S_IFDIR | 0755;
+	root_inode.mode = S_IFDIR | 0777;
 	root_inode.inode_no = SIFS_ROOTDIR_INODE_NUMBER;
 	root_inode.children_count = 2;
 

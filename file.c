@@ -4,7 +4,7 @@
 #include "sifs.h"
 
 
-ssize_t sifs_file_read(struct file *fp, char __user *buf, size_t len, loff_t *ppos)
+static ssize_t sifs_file_read(struct file *fp, char __user *buf, size_t len, loff_t *ppos)
 {
 	struct sifs_inode *inode = SIFS_INODE(fp->f_path.dentry->d_inode);
 	struct buffer_head *bh;
@@ -22,10 +22,6 @@ ssize_t sifs_file_read(struct file *fp, char __user *buf, size_t len, loff_t *pp
 	}
 
 	buffer = (char *)bh->b_data;
-	if (buffer != NULL)
-		printk("content size: %ld:%lld\n", strlen(buffer), inode->file_size);
-	else
-		printk("buffer is NULL\n");
 	nbytes = min((size_t)inode->file_size, len);
 
 	if (copy_to_user(buf, buffer, nbytes)) {
@@ -41,6 +37,12 @@ ssize_t sifs_file_read(struct file *fp, char __user *buf, size_t len, loff_t *pp
 	return nbytes;
 }
 
+static ssize_t sifs_file_write(struct file *fp, const char __user *buf, size_t len, loff_t *ppos)
+{
+	return 0;
+}
+
 const struct file_operations sifs_file_ops = {
-	.read = sifs_file_read,
+	.read  = sifs_file_read,
+	.write = sifs_file_write,
 };

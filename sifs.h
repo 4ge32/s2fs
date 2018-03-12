@@ -36,7 +36,8 @@ struct sifs_sb {
 	uint64_t magic;
 	uint64_t block_size;
 	uint64_t inodes;
-	char padding[4060];
+	uint64_t freeblocks;
+	char padding[4056];
 };
 
 /*

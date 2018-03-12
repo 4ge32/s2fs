@@ -75,6 +75,8 @@ static int sifs_fill_super(struct super_block *sb, void *data, int silent)
 	root_inode->i_op = &sifs_inode_ops;
 	root_inode->i_fop = &sifs_dir_ops;
 	root_inode->i_private = sifs_get_inode(sb, SIFS_ROOTDIR_INODE_NUMBER);
+	if (SIFS_INODE(root_inode) == NULL)
+		return -ENOMEM;
 	root_inode->i_mode = SIFS_INODE(root_inode)->mode;
 
 	if (!S_ISDIR(root_inode->i_mode)) {
