@@ -1,0 +1,27 @@
+#!/bin/sh
+
+run () {
+	sudo umount mnt
+	sudo rmmod sifs
+	make
+	make mkfs.sifs
+	sudo dd if=/dev/zero of=img bs=4096 count=100
+	sudo insmod sifs.ko
+	sudo ./mkfs.sifs img
+	sudo mount -o loop -t sifs img mnt
+}
+
+clean () {
+	sudo umount mnt
+	sudo rmmod sifs
+}
+
+case "$1" in
+	clean)
+		clean
+		;;
+	*)
+		run
+		;;
+esac
+exit 0
