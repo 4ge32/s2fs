@@ -49,7 +49,6 @@ struct sifs_inode *sifs_get_inode(struct super_block *sb, uint64_t inode_no)
 	bh = sb_bread(sb, SIFS_INODE_STORE_BLOCK_NUMBER);
 	si_inode = (struct sifs_inode *)bh->b_data;
 
-
 	for (ino = 1; ino <= si_sb->inodes; ino++) {
 	printk("%lld\n", si_inode->inode_no);
 		if (si_inode->inode_no == inode_no) {
@@ -171,7 +170,6 @@ static int sifs_create(struct inode *dir, struct dentry *dentry, umode_t mode, b
 	uint64_t count = 0;
 	int ret;
 
-	return 0;
 
 	if (mutex_lock_interruptible(&sifs_dir_child_update_lock))
 		return -EINTR;
@@ -189,10 +187,13 @@ static int sifs_create(struct inode *dir, struct dentry *dentry, umode_t mode, b
 	si_inode = kmem_cache_alloc(sifs_inode_cachep, GFP_KERNEL);
 	si_inode->inode_no = inode->i_ino;
 	si_inode->mode = mode;
+	si_inode->data_block_number = si_inode->inode_no +
+					SIFS_RECORD_BLOCK_NUMBER - 1;
 	inode->i_private = si_inode;
 
 	if (S_ISDIR(mode)) {
 	} else if (S_ISREG(mode)) {
+		printk(KERN_INFO "New file creation request\n");
 		si_inode->file_size = 0;
 		inode->i_fop = &sifs_file_ops;
 	} else
@@ -201,7 +202,7 @@ static int sifs_create(struct inode *dir, struct dentry *dentry, umode_t mode, b
 	sifs_inode_add(sb, si_inode);
 
 	parent_dir_inode = SIFS_INODE(dir);
-	bh = sb_bread(sb, SIFS_ROOTDIR_DATABLOCK_NUMBER);
+	bh = sb_bread(sb, SIFS_RECORD_BLOCK_NUMBER);
 
 	new_record = (struct sifs_dir_record *)bh->b_data;
 	new_record += parent_dir_inode->children_count;
@@ -213,6 +214,7 @@ static int sifs_create(struct inode *dir, struct dentry *dentry, umode_t mode, b
 	brelse(bh);
 
 	parent_dir_inode->children_count++;
+	printk("ADDchild:%lld\n", parent_dir_inode->children_count);
 	ret = sifs_inode_save(sb, parent_dir_inode);
 
 	mutex_unlock(&sifs_dir_child_update_lock);
@@ -238,11 +240,11 @@ static struct dentry *sifs_lookup(struct inode *parent_inode, struct dentry *chi
 	printk("%s\n", record->filename);
 
 	for (i = 0; i < parent->children_count; i++) {
-		printk("rec: %s, child: %lld", record->filename, parent->children_count);
+		printk("rec: %s, child: %lld\n", record->filename, parent->children_count);
 		if (!strcmp(record->filename, child_dentry->d_name.name)) {
 			struct inode *inode = sifs_iget(sb, record->inode_no); inode_init_owner(inode, parent_inode, SIFS_INODE(inode)->mode); d_add(child_dentry, inode);
 			printk("FOUND\n");
-			printk("LOOKUP:%lld", SIFS_INODE(inode)->file_size);
+			printk("LOOKUP:%lld\n", SIFS_INODE(inode)->file_size);
 			return NULL;
 		}
 		record++;

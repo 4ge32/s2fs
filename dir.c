@@ -25,11 +25,6 @@ static int sifs_readdir(struct file *fp, struct dir_context *ctx) {
 	bh_record = sb_bread(sb, SIFS_INODE_STORE_BLOCK_NUMBER + 1);
 	record = (struct sifs_dir_record *)bh_record->b_data;
 
-	/*
-	printk("children_count %lld\n", si_inode->children_count);
-	printk("inode no %lld\n", record->inode_no);
-	printk("name no %s\n", record->filename);
-	*/
 
 	for (i = 0; i < si_inode->children_count; i++) {
 		if (!dir_emit(ctx, record->filename, strlen(record->filename),
@@ -39,12 +34,10 @@ static int sifs_readdir(struct file *fp, struct dir_context *ctx) {
 		pos += sizeof(struct sifs_dir_record);
 		record++;
 	}
-	dir_emit_dots(fp, ctx);
+	//dir_emit_dots(fp, ctx);
 
-//	printk("hmm..\n");
 
 out:
-//	printk("oops...\n");
 	brelse(bh_inode);
 	brelse(bh_record);
 
