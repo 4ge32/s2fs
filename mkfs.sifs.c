@@ -51,13 +51,14 @@ static ssize_t write_inode(int fd, struct sifs_inode inode, ssize_t size, int ne
 	if (ret != sizeof(inode)) {
 		printf("The inode store was not write properly.\n");
 	}
+	printf(":%ld:", ret);
 
 	if (next)
 		return ret;
 
 	if (size + ret != BLOCK_DEFAULT_SIZE) {
 		off_t skip = BLOCK_DEFAULT_SIZE - (size + ret);
-		printf("%ld\n", skip + ret + size);
+		printf("\n%ld\n", skip + ret + size);
 		lseek(fd, skip, SEEK_CUR);
 	}
 }

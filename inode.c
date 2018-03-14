@@ -3,6 +3,7 @@
 
 #include "sifs.h"
 
+static DEFINE_MUTEX(sifs_sb_lock);
 static DEFINE_MUTEX(sifs_dir_child_update_lock);
 static DEFINE_MUTEX(sifs_inodes_lock);
 
@@ -50,7 +51,7 @@ struct sifs_inode *sifs_get_inode(struct super_block *sb, uint64_t inode_no)
 
 
 	for (ino = 1; ino <= si_sb->inodes; ino++) {
-	printk("%ld\n", si_inode->inode_no);
+	printk("%lld\n", si_inode->inode_no);
 		if (si_inode->inode_no == inode_no) {
 			inode_buf = kmem_cache_alloc(sifs_inode_cachep, GFP_KERNEL);
 			memcpy(inode_buf, si_inode, sizeof(*inode_buf));
@@ -110,9 +111,53 @@ static void sifs_inode_add(struct super_block *sb, struct sifs_inode *inode)
 	mutex_unlock(&sifs_inodes_lock);
 }
 
-static int sifs_inode_save(struct super_block *sb, struct sifs_inode *si_inode)
+static struct sifs_inode *sifs_inode_search(struct super_block *sb,
+						struct sifs_inode *begin,
+						struct sifs_inode *target)
 {
+	uint64_t count = 0;
+
+	while (begin->inode_no != target->inode_no
+			&& count < SIFS_SUPER(sb)->inodes) {
+		count++;
+		begin++;
+	}
+
+	if (begin->inode_no == target->inode_no) {
+		return begin;
+	}
+
+	return NULL;
+}
+
+int sifs_inode_save(struct super_block *sb, struct sifs_inode *si_inode)
+{
+	struct sifs_inode *si_inode_itr;
+	struct buffer_head *bh;
+
+	bh = sb_bread(sb, SIFS_INODE_STORE_BLOCK_NUMBER);
+
+	if (mutex_lock_interruptible(&sifs_sb_lock)) {
+		return -EINTR;
+	}
+
+	si_inode_itr = sifs_inode_search(sb, (struct sifs_inode *)bh->b_data, si_inode);
+
+	if (si_inode_itr) {
+		memcpy(si_inode_itr, si_inode, sizeof(*si_inode_itr));
+		mark_buffer_dirty(bh);
+		sync_dirty_buffer(bh);
+	} else {
+		brelse(bh);
+		mutex_unlock(&sifs_sb_lock);
+		return -EIO;
+	}
+
+	brelse(bh);
+	mutex_unlock(&sifs_sb_lock);
+
 	return 0;
+
 }
 
 static int sifs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl)

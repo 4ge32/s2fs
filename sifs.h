@@ -58,8 +58,9 @@ extern const struct file_operations sifs_dir_ops;
 extern const struct file_operations sifs_file_ops;
 extern const struct inode_operations sifs_inode_ops;
 
-struct sifs_inode *sifs_get_inode(struct super_block *sb, uint64_t inode_no);
-struct inode *sifs_iget(struct super_block *sb, int ino);
+struct sifs_inode *sifs_get_inode(struct super_block *, uint64_t);
+struct inode *sifs_iget(struct super_block *, int);
+int sifs_inode_save(struct super_block *, struct sifs_inode *);
 
 static inline struct sifs_sb *SIFS_SUPER(struct super_block *sb) {
 	return sb->s_fs_info;

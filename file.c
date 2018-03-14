@@ -67,6 +67,7 @@ static ssize_t sifs_file_write(struct file *fp, const char __user *buf, size_t l
 	brelse(bh);
 
 	si_inode->file_size += len;
+	sifs_inode_save(sb, si_inode);
 
 	return len;
 }
