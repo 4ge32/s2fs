@@ -26,6 +26,7 @@ static int sifs_readdir(struct file *fp, struct dir_context *ctx) {
 	record = (struct sifs_dir_record *)bh_record->b_data;
 
 
+	dir_emit_dots(fp, ctx);
 	for (i = 0; i < si_inode->children_count; i++) {
 		if (!dir_emit(ctx, record->filename, strlen(record->filename),
 			                   record->inode_no, DT_UNKNOWN))
@@ -34,7 +35,6 @@ static int sifs_readdir(struct file *fp, struct dir_context *ctx) {
 		pos += sizeof(struct sifs_dir_record);
 		record++;
 	}
-	//dir_emit_dots(fp, ctx);
 
 
 out:
