@@ -13,9 +13,11 @@ mount -o loop -t sifs img mnt
 
 rmmod sifs.ko
 
-## Layout
+## Layout 
 
-============================================  
-|  Super  | inode | file info | file data  |  
-|  block  | table |   block   |    block   |  
-============================================
+```
+============================================= 　
+|  Super  | inode | file info | file data   |  　 
+|  block  | table |   block   |    block    |    
+=============================================
+```
