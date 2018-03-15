@@ -170,6 +170,8 @@ static int sifs_create(struct inode *dir, struct dentry *dentry, umode_t mode, b
 	uint64_t count = 0;
 	int ret;
 
+	printk("CREATE\n");
+	printk("mode:%d\n", mode);
 
 	if (mutex_lock_interruptible(&sifs_dir_child_update_lock))
 		return -EINTR;
@@ -187,27 +189,35 @@ static int sifs_create(struct inode *dir, struct dentry *dentry, umode_t mode, b
 	si_inode = kmem_cache_alloc(sifs_inode_cachep, GFP_KERNEL);
 	si_inode->inode_no = inode->i_ino;
 	si_inode->mode = mode;
-	si_inode->data_block_number = si_inode->inode_no +
-					SIFS_RECORD_BLOCK_NUMBER - 1;
 	inode->i_private = si_inode;
 
+
+	printk("inodddd  %ld \n", si_inode->inode_no);
 	if (S_ISDIR(mode)) {
+		printk(KERN_INFO "New directory creation request\n");
+		si_inode->children_count = 0;
+		inode->i_fop = &sifs_dir_ops;
 	} else if (S_ISREG(mode)) {
 		printk(KERN_INFO "New file creation request\n");
 		si_inode->file_size = 0;
+		si_inode->data_block_number = si_inode->inode_no +
+					SIFS_RECORD_BLOCK_NUMBER - 1;
 		inode->i_fop = &sifs_file_ops;
 	} else
 		return -EINVAL;
+
 
 	sifs_inode_add(sb, si_inode);
 
 	parent_dir_inode = SIFS_INODE(dir);
 	bh = sb_bread(sb, SIFS_RECORD_BLOCK_NUMBER);
 
+	/* ORDER is important */
 	new_record = (struct sifs_dir_record *)bh->b_data;
-	new_record += parent_dir_inode->children_count;
+	new_record += parent_dir_inode->inode_no + parent_dir_inode->children_count - 1;
 	new_record->inode_no = si_inode->inode_no;
 	strcpy(new_record->filename, dentry->d_name.name);
+
 
 	mark_buffer_dirty(bh);
 	sync_dirty_buffer(bh);
@@ -242,7 +252,9 @@ static struct dentry *sifs_lookup(struct inode *parent_inode, struct dentry *chi
 	for (i = 0; i < parent->children_count; i++) {
 		printk("rec: %s, child: %lld\n", record->filename, parent->children_count);
 		if (!strcmp(record->filename, child_dentry->d_name.name)) {
-			struct inode *inode = sifs_iget(sb, record->inode_no); inode_init_owner(inode, parent_inode, SIFS_INODE(inode)->mode); d_add(child_dentry, inode);
+			struct inode *inode = sifs_iget(sb, record->inode_no);
+			inode_init_owner(inode, parent_inode, SIFS_INODE(inode)->mode);
+			d_add(child_dentry, inode);
 			printk("FOUND\n");
 			printk("LOOKUP:%lld\n", SIFS_INODE(inode)->file_size);
 			return NULL;
@@ -254,7 +266,13 @@ static struct dentry *sifs_lookup(struct inode *parent_inode, struct dentry *chi
 	return NULL;
 }
 
+static int sifs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
+{
+	return sifs_create(dir, dentry, mode | S_IFDIR, 0);
+}
+
 const struct inode_operations sifs_inode_ops = {
 	.create = sifs_create,
 	.lookup = sifs_lookup,
+	.mkdir  = sifs_mkdir,
 };

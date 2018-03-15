@@ -1,6 +1,7 @@
 #define SIFS_MAGIC 0xEFF10
 #define BLOCK_DEFAULT_SIZE 4096
 #define SIFS_FILENAME_MAX_LEN 256
+#define SIFS_FILE_MAXSIZE 512
 
 #define SIFS_START_INO 10
 
@@ -11,12 +12,11 @@
 #define SIFS_RECORD_BLOCK_NUMBER 2
 #define SIFS_ROOTDIR_DATABLOCK_NUMBER 3
 
-#define SIFS_FILE_MAXNUM 100
 
 extern struct kmem_cache *sifs_inode_cachep;
 
 struct sifs_dir_record {
-	char filename[SIFS_FILE_MAXNUM];
+	char filename[SIFS_FILENAME_MAX_LEN];
 	uint64_t inode_no;
 };
 
