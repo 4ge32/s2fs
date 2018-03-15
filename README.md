@@ -1,4 +1,4 @@
-sifs - Simple filesystem on Linux
+s2fs - Super Simple filesystem on Linux
 ====
 
 Overview
@@ -12,3 +12,10 @@ insmod sifs.ko
 mount -o loop -t sifs img mnt  
 
 rmmod sifs.ko
+
+## Layout
+
+============================================  
+|  Super  | inode | file info | file data  |  
+|  block  | table |   block   |    block   |  
+============================================
