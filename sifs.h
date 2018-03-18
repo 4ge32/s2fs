@@ -26,6 +26,8 @@ struct sifs_inode {
 	uint64_t data_block_number;
 	uint64_t file_size;
 	uint64_t children_count;
+	uint8_t valid;
+	struct sifs_dir_record *rec;
 };
 
 /*

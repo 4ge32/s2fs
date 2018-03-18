@@ -17,9 +17,17 @@ clean () {
 	make clean
 }
 
+fs_test() {
+	run
+	echo "*** TEST START ***"
+}
+
 case "$1" in
 	clean)
 		clean
+		;;
+	test)
+		fs_test
 		;;
 	*)
 		run

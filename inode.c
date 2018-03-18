@@ -52,6 +52,7 @@ struct sifs_inode *sifs_get_inode(struct super_block *sb, uint64_t inode_no)
 	for (ino = 1; ino <= si_sb->inodes; ino++) {
 	printk("%lld\n", si_inode->inode_no);
 		if (si_inode->inode_no == inode_no) {
+			printk("sehen sich mich!\n");
 			inode_buf = kmem_cache_alloc(sifs_inode_cachep, GFP_KERNEL);
 			memcpy(inode_buf, si_inode, sizeof(*inode_buf));
 			return inode_buf;
@@ -192,7 +193,6 @@ static int sifs_create(struct inode *dir, struct dentry *dentry, umode_t mode, b
 	inode->i_private = si_inode;
 
 
-	printk("inodddd  %ld \n", si_inode->inode_no);
 	if (S_ISDIR(mode)) {
 		printk(KERN_INFO "New directory creation request\n");
 		si_inode->children_count = 0;
@@ -224,7 +224,6 @@ static int sifs_create(struct inode *dir, struct dentry *dentry, umode_t mode, b
 	brelse(bh);
 
 	parent_dir_inode->children_count++;
-	printk("ADDchild:%lld\n", parent_dir_inode->children_count);
 	ret = sifs_inode_save(sb, parent_dir_inode);
 
 	mutex_unlock(&sifs_dir_child_update_lock);
@@ -250,7 +249,6 @@ static struct dentry *sifs_lookup(struct inode *parent_inode, struct dentry *chi
 	printk("%s\n", record->filename);
 
 	for (i = 0; i < parent->children_count; i++) {
-		printk("rec: %s, child: %lld\n", record->filename, parent->children_count);
 		if (!strcmp(record->filename, child_dentry->d_name.name)) {
 			struct inode *inode = sifs_iget(sb, record->inode_no);
 			inode_init_owner(inode, parent_inode, SIFS_INODE(inode)->mode);
@@ -271,8 +269,25 @@ static int sifs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	return sifs_create(dir, dentry, mode | S_IFDIR, 0);
 }
 
+static int sifs_unlink(struct inode *dir, struct dentry *dentry)
+{
+	struct inode *inode = d_inode(dentry);
+	struct sifs_inode *si_inode = SIFS_INODE(inode);
+	struct super_block *sb = dir->i_sb;
+
+	inode->i_ctime = dir->i_ctime = dir->i_mtime = current_time(inode);
+	printk("NOTICE: Unlink old %d and ino %ld\n", si_inode->valid, dentry->d_inode->i_ino);
+	si_inode->valid = false;
+	sifs_inode_save(sb, si_inode);
+	printk("NOTICE: Unlink old %d\n", si_inode->valid);
+	drop_nlink(inode);
+	dput(dentry);
+	return 0;
+}
+
 const struct inode_operations sifs_inode_ops = {
 	.create = sifs_create,
 	.lookup = sifs_lookup,
 	.mkdir  = sifs_mkdir,
+	.unlink = sifs_unlink,
 };

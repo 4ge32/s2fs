@@ -8,6 +8,9 @@
 #define NEXT 1
 #define END  0
 
+#define true  1
+#define false 0
+
 static void write_superblock(int fd)
 {
 	ssize_t ret;
@@ -33,6 +36,7 @@ static ssize_t write_root_inode(int fd)
 	root_inode.mode = S_IFDIR | 0777;
 	root_inode.inode_no = SIFS_ROOTDIR_INODE_NUMBER;
 	root_inode.children_count = 2;
+	root_inode.valid = true;
 
 	ret = write(fd, &root_inode, sizeof(root_inode));
 	if (ret != sizeof(root_inode)) {
@@ -113,6 +117,8 @@ int main(int argc, char *argv[])
 		.inode_no = SIFS_ROOTDIR_INODE_NUMBER + 1,
 		.data_block_number = SIFS_ROOTDIR_DATABLOCK_NUMBER,
 		.file_size = f_size,
+		.valid = true,
+		.rec = &record,
 	};
 	struct sifs_dir_record record2 = {
 		.filename = "MEIG",
@@ -123,6 +129,8 @@ int main(int argc, char *argv[])
 		.inode_no = SIFS_ROOTDIR_INODE_NUMBER + 2,
 		.data_block_number = SIFS_ROOTDIR_DATABLOCK_NUMBER + 1,
 		.file_size = f_size2,
+		.valid  = true,
+		.rec = &record2,
 	};
 
 	if (argc != 2) {
