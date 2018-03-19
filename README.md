@@ -24,7 +24,5 @@ rmmod sifs.ko
 ```
 
 ## Next Work
-1. Change the order of writing the disk layout for
-inodes having record pointer. 
-2. Add test script. 
-3. Clean the entire code. 
+1. Add test script. 
+2. Clean the entire code. 
