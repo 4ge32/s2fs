@@ -90,7 +90,6 @@ static int sifs_fill_super(struct super_block *sb, void *data, int silent)
 		goto release;
 	}
 
-
 	printk(KERN_INFO "fill superblock successfully\n");
 	return 0;
 

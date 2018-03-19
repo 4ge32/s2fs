@@ -118,7 +118,6 @@ int main(int argc, char *argv[])
 		.data_block_number = SIFS_ROOTDIR_DATABLOCK_NUMBER,
 		.file_size = f_size,
 		.valid = true,
-		.rec = &record,
 	};
 	struct sifs_dir_record record2 = {
 		.filename = "MEIG",
@@ -130,7 +129,6 @@ int main(int argc, char *argv[])
 		.data_block_number = SIFS_ROOTDIR_DATABLOCK_NUMBER + 1,
 		.file_size = f_size2,
 		.valid  = true,
-		.rec = &record2,
 	};
 
 	if (argc != 2) {

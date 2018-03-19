@@ -38,6 +38,33 @@ struct inode *sifs_iget(struct super_block *sb, int ino)
 	return inode;
 }
 
+int sifs_get_inode_record(struct super_block *sb, struct sifs_inode *si_inode)
+{
+	struct buffer_head *bh;
+	struct sifs_dir_record *record;
+	struct sifs_sb *si_sb = SIFS_SUPER(sb);
+	int ino;
+
+	bh= sb_bread(sb, SIFS_RECORD_BLOCK_NUMBER);
+	record = (struct sifs_dir_record *)bh->b_data;
+
+
+	for (ino = 1; ino <= si_sb->inodes; ino++) {
+		printk("INODE_RECORD: %lld, %lld\n", si_inode->inode_no, record->inode_no);
+		if (si_inode->inode_no == record->inode_no) {
+			printk("GET RECORD!\n");
+			si_inode->rec = record;
+			goto FOUND;
+		}
+		record++;
+		printk("KERN ken  ");
+	}
+	brelse(bh);
+	return 1;
+FOUND:
+	return 0;
+}
+
 struct sifs_inode *sifs_get_inode(struct super_block *sb, uint64_t inode_no)
 {
 	int ino;
@@ -53,6 +80,7 @@ struct sifs_inode *sifs_get_inode(struct super_block *sb, uint64_t inode_no)
 	printk("%lld\n", si_inode->inode_no);
 		if (si_inode->inode_no == inode_no) {
 			printk("sehen sich mich!\n");
+			sifs_get_inode_record(sb, si_inode);
 			inode_buf = kmem_cache_alloc(sifs_inode_cachep, GFP_KERNEL);
 			memcpy(inode_buf, si_inode, sizeof(*inode_buf));
 			return inode_buf;
@@ -190,6 +218,7 @@ static int sifs_create(struct inode *dir, struct dentry *dentry, umode_t mode, b
 	si_inode = kmem_cache_alloc(sifs_inode_cachep, GFP_KERNEL);
 	si_inode->inode_no = inode->i_ino;
 	si_inode->mode = mode;
+	si_inode->valid = true;
 	inode->i_private = si_inode;
 
 
@@ -217,6 +246,7 @@ static int sifs_create(struct inode *dir, struct dentry *dentry, umode_t mode, b
 	new_record += parent_dir_inode->inode_no + parent_dir_inode->children_count - 1;
 	new_record->inode_no = si_inode->inode_no;
 	strcpy(new_record->filename, dentry->d_name.name);
+	si_inode->rec = new_record;
 
 
 	mark_buffer_dirty(bh);

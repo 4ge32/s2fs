@@ -10,48 +10,47 @@ static int sifs_readdir(struct file *fp, struct dir_context *ctx) {
 	struct super_block *sb;
 	struct buffer_head *bh_inode;
 	struct sifs_inode *si_inode;
-	struct buffer_head *bh_record;
-	struct sifs_dir_record *record;
 	struct sifs_inode *dir = SIFS_INODE(fp->f_path.dentry->d_inode);
 	int i;
+	int count = 0;
 
 	pos = ctx->pos;
 	sb = fp->f_inode->i_sb;
 	if (pos)
 		return 0;
 
-
 	bh_inode = sb_bread(sb, SIFS_INODE_STORE_BLOCK_NUMBER);
 	si_inode = (struct sifs_inode *)bh_inode->b_data;
 	si_inode += dir->inode_no;
 
-	bh_record = sb_bread(sb, SIFS_RECORD_BLOCK_NUMBER);
-	record = (struct sifs_dir_record *)bh_record->b_data;
-	record += dir->inode_no - 1;
-
 
 	dir_emit_dots(fp, ctx);
 	for (i = 0; i < dir->children_count; i++) {
-		printk("%lld, %lld\n", si_inode->inode_no, record->inode_no);
+		if (si_inode->rec == NULL) {
+			printk("READDIR: IF NULL %d", count++);
+			sifs_get_inode_record(sb, si_inode);
+		}
+		if (si_inode->rec != NULL) {
+			printk("READDIR: %s\n", si_inode->rec->filename);
+			printk("READDIR: %p\n", &si_inode->rec->filename);
+			printk("READDIR: %lld\n", si_inode->rec->inode_no);
+		}
 		if (!si_inode->valid) {
-			record++;
 			si_inode++;
 			continue;
 		}
-		if (!dir_emit(ctx, record->filename, strlen(record->filename),
-			                   record->inode_no, DT_UNKNOWN))
+		if (!dir_emit(ctx, si_inode->rec->filename, strlen(si_inode->rec->filename),
+			                   si_inode->rec->inode_no, DT_UNKNOWN))
 			goto out;
 
 		ctx->pos += sizeof(struct sifs_dir_record);
 		pos += sizeof(struct sifs_dir_record);
-		record++;
 		si_inode++;
 	}
 
 
 out:
 	brelse(bh_inode);
-	brelse(bh_record);
 
 	return 0;
 }

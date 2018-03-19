@@ -63,6 +63,7 @@ extern const struct inode_operations sifs_inode_ops;
 struct sifs_inode *sifs_get_inode(struct super_block *, uint64_t);
 struct inode *sifs_iget(struct super_block *, int);
 int sifs_inode_save(struct super_block *, struct sifs_inode *);
+int sifs_get_inode_record(struct super_block *, struct sifs_inode *);
 
 static inline struct sifs_sb *SIFS_SUPER(struct super_block *sb) {
 	return sb->s_fs_info;
