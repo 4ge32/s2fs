@@ -49,7 +49,7 @@ int sifs_get_inode_record(struct super_block *sb, struct sifs_inode *si_inode)
 	record = (struct sifs_dir_record *)bh->b_data;
 
 
-	for (ino = 1; ino <= si_sb->inodes; ino++) {
+	for (ino = 1; ino <= si_sb->inodes_count; ino++) {
 		printk("INODE_RECORD: %lld, %lld\n", si_inode->inode_no, record->inode_no);
 		if (si_inode->inode_no == record->inode_no) {
 			printk("GET RECORD!\n");
@@ -76,7 +76,7 @@ struct sifs_inode *sifs_get_inode(struct super_block *sb, uint64_t inode_no)
 	bh = sb_bread(sb, SIFS_INODE_STORE_BLOCK_NUMBER);
 	si_inode = (struct sifs_inode *)bh->b_data;
 
-	for (ino = 1; ino <= si_sb->inodes; ino++) {
+	for (ino = 1; ino <= si_sb->inodes_count; ino++) {
 	printk("%lld\n", si_inode->inode_no);
 		if (si_inode->inode_no == inode_no) {
 			printk("sehen sich mich!\n");
@@ -99,7 +99,7 @@ static int sifs_sb_get_objs_count(struct super_block *sb, uint64_t *out)
 		return -EINTR;
 	}
 
-	*out = si_sb->inodes;
+	*out = si_sb->inodes_count;
 	mutex_unlock(&sifs_inodes_lock);
 
 	return 0;
@@ -130,9 +130,9 @@ static void sifs_inode_add(struct super_block *sb, struct sifs_inode *inode)
 
 	bh = sb_bread(sb, SIFS_INODE_STORE_BLOCK_NUMBER);
 	si_inode = (struct sifs_inode *)bh->b_data;
-	si_inode += si_sb->inodes;
+	si_inode += si_sb->inodes_count;
 	memcpy(si_inode, inode, sizeof(struct sifs_inode));
-	si_sb->inodes++;
+	si_sb->inodes_count++;
 	mark_buffer_dirty(bh);
 	sifs_sb_sync(sb);
 
@@ -146,7 +146,7 @@ static struct sifs_inode *sifs_inode_search(struct super_block *sb,
 	uint64_t count = 0;
 
 	while (begin->inode_no != target->inode_no
-			&& count < SIFS_SUPER(sb)->inodes) {
+			&& count < SIFS_SUPER(sb)->inodes_count) {
 		count++;
 		begin++;
 	}

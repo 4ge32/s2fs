@@ -3,15 +3,12 @@
 #define SIFS_FILENAME_MAX_LEN 256
 #define SIFS_FILE_MAXSIZE 512
 
-#define SIFS_START_INO 10
-
 #define SIFS_SUPER_BLOCK_NUMBER 0
 #define SIFS_INODE_STORE_BLOCK_NUMBER 1
-
-#define SIFS_ROOTDIR_INODE_NUMBER 1
 #define SIFS_RECORD_BLOCK_NUMBER 2
 #define SIFS_ROOTDIR_DATABLOCK_NUMBER 3
 
+#define SIFS_ROOTDIR_INODE_NUMBER 1
 
 extern struct kmem_cache *sifs_inode_cachep;
 
@@ -34,12 +31,19 @@ struct sifs_inode {
  * sifs super-block data on disk
  */
 struct sifs_sb {
+	/*
 	uint64_t version;
 	uint64_t magic;
 	uint64_t block_size;
 	uint64_t inodes;
 	uint64_t freeblocks;
-	char padding[4056];
+	*/
+	__le16 version;
+	__le32 magic;
+	__le32 inodes_count;
+	__le32 blocks_count;
+	__le32 free_blocks_count;
+	__le64 block_size;
 };
 
 /*
@@ -49,7 +53,7 @@ struct sifs_sb_info {
 	uint64_t version;
 	uint64_t magic;
 	uint64_t block_size;
-	uint64_t inodes;
+	uint64_t inodes_count;
 	struct buffer_head *s_bh;
 	struct sifs_sb *si_sb;
 };

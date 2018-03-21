@@ -2,14 +2,13 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <fcntl.h>
+#include <linux/types.h>
 
 #include "sifs.h"
 
-#define NEXT 1
-#define END  0
-
 #define true  1
 #define false 0
+
 
 static void write_superblock(int fd)
 {
@@ -18,14 +17,11 @@ static void write_superblock(int fd)
 	struct sifs_sb sb = {
 		.version = 0,
 		.magic = SIFS_MAGIC,
-		.inodes = 3,
+		.inodes_count = 3,
 		.block_size = BLOCK_DEFAULT_SIZE,
 	};
 
 	ret = write(fd, &sb, sizeof(sb));
-	if (ret != BLOCK_DEFAULT_SIZE) {
-		printf("bytes written [%ld]\n", ret);
-	}
 }
 
 static ssize_t write_root_inode(int fd)
@@ -47,7 +43,7 @@ static ssize_t write_root_inode(int fd)
 
 }
 
-static ssize_t write_inode(int fd, struct sifs_inode inode, ssize_t size, int next)
+static ssize_t write_inode(int fd, struct sifs_inode inode, ssize_t size)
 {
 	ssize_t ret;
 
@@ -55,34 +51,15 @@ static ssize_t write_inode(int fd, struct sifs_inode inode, ssize_t size, int ne
 	if (ret != sizeof(inode)) {
 		printf("The inode store was not write properly.\n");
 	}
-	printf(":%ld:", ret);
-
-	if (next)
-		return ret;
-
-	if (size + ret != BLOCK_DEFAULT_SIZE) {
-		off_t skip = BLOCK_DEFAULT_SIZE - (size + ret);
-		printf("\n%ld\n", skip + ret + size);
-		lseek(fd, skip, SEEK_CUR);
-	}
 }
 
-static ssize_t write_record(int fd, struct sifs_dir_record record, ssize_t size, int next)
+static ssize_t write_record(int fd, struct sifs_dir_record record, ssize_t size)
 {
 	ssize_t ret;
 
 	ret = write(fd, &record, sizeof(record));
 	if (ret != sizeof(record)) {
 		printf("The inode store was not write properly.\n");
-	}
-
-	if (next)
-		return ret;
-
-	if (size + ret != BLOCK_DEFAULT_SIZE) {
-		off_t skip = BLOCK_DEFAULT_SIZE - (size + ret);
-		printf("%ld\n", skip + ret + size);
-		lseek(fd, skip, SEEK_CUR);
 	}
 }
 
@@ -104,6 +81,7 @@ static void write_block(int fd, char *block, size_t len)
 int main(int argc, char *argv[])
 {
 	int fd;
+	ssize_t size;
 	char file_content[]  = "Sehen Sie mich! Sehen Sie mich! Das Monstrum in meinem Selbst ist So gross geworden!\n";
 	char file_content2[] = "Heute ist die beste Zeit\n";
 	size_t f_size = sizeof(file_content);
@@ -143,13 +121,18 @@ int main(int argc, char *argv[])
 	}
 
 	lseek(fd, 0, SEEK_SET);
-
 	write_superblock(fd);
-	ssize_t size = write_root_inode(fd);
-	size += write_inode(fd, inode, 0, NEXT);
-	write_inode(fd, inode2, size, END);
-	size = write_record(fd, record, 0, NEXT);
-	write_record(fd, record2, size, END);
+
+	lseek(fd, 0x1000, SEEK_SET);
+	size = write_root_inode(fd);
+	size += write_inode(fd, inode, 0);
+	write_inode(fd, inode2, size);
+
+	lseek(fd, 0x2000, SEEK_SET);
+	size = write_record(fd, record, 0);
+	write_record(fd, record2, size);
+
+	lseek(fd, 0x3000, SEEK_SET);
 	write_block(fd, file_content, f_size);
 	write_block(fd, file_content2, f_size2);
 

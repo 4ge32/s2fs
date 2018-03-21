@@ -45,9 +45,9 @@ static int sifs_fill_super(struct super_block *sb, void *data, int silent)
 
 	si_sb = (struct sifs_sb *)bh->b_data;
 
-	printk(KERN_INFO "The magic number obtained in disk is: [%llx]\n",
+	printk(KERN_INFO "The magic number obtained in disk is: [%x]\n",
 			si_sb->magic);
-	printk(KERN_INFO "There are %llu inodes\n", si_sb->inodes);
+	printk(KERN_INFO "There are %u inodes\n", si_sb->inodes_count);
 
 	if (unlikely(si_sb->magic != SIFS_MAGIC))
 		goto magic_mismatch;
@@ -61,7 +61,7 @@ static int sifs_fill_super(struct super_block *sb, void *data, int silent)
 
 	sbi->s_bh = bh;
 	sbi->si_sb = si_sb;
-	sbi->inodes = si_sb->inodes;
+	sbi->inodes_count = si_sb->inodes_count;
 
 	sb->s_fs_info = sbi;
 	sb->s_magic = SIFS_MAGIC;
