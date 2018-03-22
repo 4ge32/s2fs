@@ -1,12 +1,12 @@
 #include <linux/fs.h>
 #include <linux/buffer_head.h>
 
-#include "sifs.h"
+#include "s2fs.h"
 
 
-static ssize_t sifs_file_read(struct file *fp, char __user *buf, size_t len, loff_t *ppos)
+static ssize_t s2fs_file_read(struct file *fp, char __user *buf, size_t len, loff_t *ppos)
 {
-	struct sifs_inode *inode = SIFS_INODE(fp->f_path.dentry->d_inode);
+	struct s2fs_inode *inode = S2FS_INODE(fp->f_path.dentry->d_inode);
 	struct buffer_head *bh;
 	char *buffer;
 	int nbytes;
@@ -37,24 +37,24 @@ static ssize_t sifs_file_read(struct file *fp, char __user *buf, size_t len, lof
 	return nbytes;
 }
 
-static ssize_t sifs_file_write(struct file *fp, const char __user *buf, size_t len, loff_t *ppos)
+static ssize_t s2fs_file_write(struct file *fp, const char __user *buf, size_t len, loff_t *ppos)
 {
-	struct sifs_inode *si_inode;
+	struct s2fs_inode *s2_inode;
 	struct inode *inode;
 	struct buffer_head *bh;
 	struct super_block *sb;
-	struct sifs_sb *si_sb;
+	struct s2fs_sb *s2_sb;
 	char *buffer;
 
 	sb = fp->f_path.dentry->d_inode->i_sb;
-	si_sb = SIFS_SUPER(sb);
+	s2_sb = S2FS_SUPER(sb);
 	inode = fp->f_path.dentry->d_inode;
-	si_inode = SIFS_INODE(inode);
+	s2_inode = S2FS_INODE(inode);
 
-	bh = sb_bread(sb, si_inode->data_block_number);
+	bh = sb_bread(sb, s2_inode->data_block_number);
 	buffer = (char *)bh->b_data;
 
-	buffer += si_inode->file_size;
+	buffer += s2_inode->file_size;
 
 	if (copy_from_user(buffer, buf, len)) {
 		brelse(bh);
@@ -66,13 +66,13 @@ static ssize_t sifs_file_write(struct file *fp, const char __user *buf, size_t l
 	sync_dirty_buffer(bh);
 	brelse(bh);
 
-	si_inode->file_size += len;
-	sifs_inode_save(sb, si_inode);
+	s2_inode->file_size += len;
+	s2fs_inode_save(sb, s2_inode);
 
 	return len;
 }
 
-const struct file_operations sifs_file_ops = {
-	.read  = sifs_file_read,
-	.write = sifs_file_write,
+const struct file_operations s2fs_file_ops = {
+	.read  = s2fs_file_read,
+	.write = s2fs_file_write,
 };

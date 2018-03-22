@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include <linux/types.h>
 
-#include "sifs.h"
+#include "s2fs.h"
 
 #define true  1
 #define false 0
@@ -14,9 +14,9 @@ static void write_superblock(int fd)
 {
 	ssize_t ret;
 
-	struct sifs_sb sb = {
+	struct s2fs_sb sb = {
 		.version = 0,
-		.magic = SIFS_MAGIC,
+		.magic = S2FS_MAGIC,
 		.inodes_count = 3,
 		.block_size = BLOCK_DEFAULT_SIZE,
 	};
@@ -27,10 +27,10 @@ static void write_superblock(int fd)
 static ssize_t write_root_inode(int fd)
 {
 	ssize_t ret;
-	struct sifs_inode root_inode;
+	struct s2fs_inode root_inode;
 
 	root_inode.mode = S_IFDIR | 0777;
-	root_inode.inode_no = SIFS_ROOTDIR_INODE_NUMBER;
+	root_inode.inode_no = S2FS_ROOTDIR_INODE_NUMBER;
 	root_inode.children_count = 2;
 	root_inode.valid = true;
 
@@ -43,7 +43,7 @@ static ssize_t write_root_inode(int fd)
 
 }
 
-static ssize_t write_inode(int fd, struct sifs_inode inode, ssize_t size)
+static ssize_t write_inode(int fd, struct s2fs_inode inode, ssize_t size)
 {
 	ssize_t ret;
 
@@ -53,7 +53,7 @@ static ssize_t write_inode(int fd, struct sifs_inode inode, ssize_t size)
 	}
 }
 
-static ssize_t write_record(int fd, struct sifs_dir_record record, ssize_t size)
+static ssize_t write_record(int fd, struct s2fs_dir_record record, ssize_t size)
 {
 	ssize_t ret;
 
@@ -86,31 +86,31 @@ int main(int argc, char *argv[])
 	char file_content2[] = "Heute ist die beste Zeit\n";
 	size_t f_size = sizeof(file_content);
 	size_t f_size2 = sizeof(file_content2);
-	struct sifs_dir_record record = {
+	struct s2fs_dir_record record = {
 		.filename = "TEST",
-		.inode_no = SIFS_ROOTDIR_INODE_NUMBER + 1,
+		.inode_no = S2FS_ROOTDIR_INODE_NUMBER + 1,
 	};
-	struct sifs_inode inode = {
+	struct s2fs_inode inode = {
 		.mode = S_IFREG | 0666,
-		.inode_no = SIFS_ROOTDIR_INODE_NUMBER + 1,
-		.data_block_number = SIFS_ROOTDIR_DATABLOCK_NUMBER,
+		.inode_no = S2FS_ROOTDIR_INODE_NUMBER + 1,
+		.data_block_number = S2FS_ROOTDIR_DATABLOCK_NUMBER,
 		.file_size = f_size,
 		.valid = true,
 	};
-	struct sifs_dir_record record2 = {
+	struct s2fs_dir_record record2 = {
 		.filename = "MEIG",
-		.inode_no = SIFS_ROOTDIR_INODE_NUMBER + 2,
+		.inode_no = S2FS_ROOTDIR_INODE_NUMBER + 2,
 	};
-	struct sifs_inode inode2 = {
+	struct s2fs_inode inode2 = {
 		.mode = S_IFREG | 0666,
-		.inode_no = SIFS_ROOTDIR_INODE_NUMBER + 2,
-		.data_block_number = SIFS_ROOTDIR_DATABLOCK_NUMBER + 1,
+		.inode_no = S2FS_ROOTDIR_INODE_NUMBER + 2,
+		.data_block_number = S2FS_ROOTDIR_DATABLOCK_NUMBER + 1,
 		.file_size = f_size2,
 		.valid  = true,
 	};
 
 	if (argc != 2) {
-		printf("Usage: mkfs.sifs <device>\n");
+		printf("Usage: mkfs.s2fs <device>\n");
 		return -1;
 	}
 

@@ -16,4 +16,4 @@ all:
 mkfs.s2fs: $(PROG)
 	$(CC) $(CFLAGS) -DMKFS -o $@ $(PROG)
 clean:
-	rm -rf *.o *.ko *.mod.c *.symvers *.order *.tmp_versions mkfs.sifs
+	rm -rf *.o *.ko *.mod.c *.symvers *.order *.tmp_vers2ons mkfs.s2fs
