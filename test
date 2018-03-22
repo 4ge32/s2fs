@@ -6,6 +6,8 @@ TEST_DIR=$ROOT_DIR/$TEST_DIR
 SETCOLOR_SUCCESS="echo -n \\033[1;32m"
 SETCOLOR_FAILURE="echo -n \\033[1;31m"
 SETCOLOR_NORMAL="echo -n \\033[1;39m"
+SETCOLOR_START="echo -n \\033[1;36m"
+TEST_DIR_ENTRY="MEIG TEST"
 
 OK() {
   $SETCOLOR_SUCCESS
@@ -13,15 +15,33 @@ OK() {
   $SETCOLOR_NORMAL
 }
 
+clean() {
+  cd ..
+  sudo umount $TEST_DIR
+  sudo rmmod s2fs
+  make clean
+}
+
 FAILED() {
+  echo -n "This test process failed"
   $SETCOLOR_FAILURE
-  echo "\t[FAULED]"
+  echo "\t[FAILED]"
   $SETCOLOR_NORMAL
+  echo "Handling test end..."
+  clean
+  $SETCOLOR_FAILURE
+  echo "TEST FAILED"
   exit 1
 }
 
 OUTPUT() {
   echo -n $MSG
+}
+
+C_OUTPUT() {
+  $SETCOLOR_START
+  echo -n $MSG
+  $SETCOLOR_NORMAL
 }
 
 prepare() {
@@ -38,15 +58,33 @@ run() {
   sudo mount -o loop -t s2fs img $TEST_DIR
 }
 
-clean() {
-  sudo umount $TEST_DIR
-  sudo rmmod s2fs
-  make clean
-}
-
-test_fs() {
+test_entry() {
+  STATUS=0
+  MSG="Checking directory entry" C_OUTPUT
+  echo ""
   cd $TEST_DIR
   for file in *; do
+    for entry in $TEST_DIR_ENTRY; do
+      if [ -f $file -a $file = $entry ]; then
+	echo $file
+	STATUS=`expr $STATUS + 1`
+      fi
+    done
+  done
+
+  if [ $STATUS -eq 2 ]; then
+    MSG="The predicted directory entry normally exists" OUTPUT
+    OK
+  else
+    FAILED
+  fi
+}
+
+test_data() {
+  MSG="Checking whether file data can be read normaly" C_OUTPUT
+  echo
+  for file in *; do
+    cat $file
   done
 }
 
@@ -66,19 +104,19 @@ test_main() {
     FAILED
   fi
 
-  MSG="Mounting s2fs on $TEST_DIR" OUTPUT
+  MSG="Mounting s2fs on $TEST_DIR" C_OUTPUT
   echo ""
   run
 
-  test_fs
-  OK
+  test_entry
+  test_data
 
-  cd ..
+  MSG="Clean and Removing test Directory $TEST_DIR" C_OUTPUT
+  echo ""
   clean
-
-  MSG="Removing test Directory $TEST_DIR" OUTPUT
   rm -r $TEST_DIR
   if [ ! -d $TEST_DIR ]; then
+    MSG="Delete tmp directory and Clean work space" OUTPUT
     OK
   else
     FAILED
@@ -91,3 +129,6 @@ cd `dirname $0`
 $SETCOLOR_NORMAL
 
 test_main
+$SETCOLOR_SUCCESS
+echo "ALL TEST SUCCEEDED!"
+echo ""
