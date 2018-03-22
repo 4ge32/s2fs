@@ -17,6 +17,11 @@ clean () {
 	make clean
 }
 
+mount()
+{
+	sudo mount -o loop -t sifs img mnt
+}
+
 fs_test() {
 	run
 	echo "*** TEST START ***"
@@ -27,7 +32,7 @@ case "$1" in
 		clean
 		;;
 	test)
-		fs_test
+		mount
 		;;
 	*)
 		run

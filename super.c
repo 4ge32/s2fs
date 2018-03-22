@@ -33,7 +33,7 @@ static void destroy_inodecache(void)
 static int sifs_fill_super(struct super_block *sb, void *data, int silent)
 {
 	struct sifs_sb *si_sb;
-	struct sifs_sb_info *sbi;
+	struct sifs_sb *sbi;
 	struct buffer_head *bh;
 	struct inode *root_inode;
 	int ret = -EPERM;
@@ -57,13 +57,14 @@ static int sifs_fill_super(struct super_block *sb, void *data, int silent)
 	printk(KERN_INFO "block size is %llu\n", si_sb->block_size);
 	printk(KERN_INFO "block size is %lu\n", sb->s_blocksize);
 
-	sbi = kzalloc(sizeof(struct sifs_sb_info), GFP_KERNEL);
+	sbi = kzalloc(sizeof(struct sifs_sb), GFP_KERNEL);
+	sbi = si_sb;
 
-	sbi->s_bh = bh;
-	sbi->si_sb = si_sb;
+	//sbi->s_bh = bh;
+	//sbi->si_sb = sbi;
 	sbi->inodes_count = si_sb->inodes_count;
 
-	sb->s_fs_info = sbi;
+	sb->s_fs_info = si_sb;
 	sb->s_magic = SIFS_MAGIC;
 	sb->s_blocksize = BLOCK_DEFAULT_SIZE;
 	sb->s_op = &sifs_sops;
