@@ -1,0 +1,89 @@
+#!/bin/sh
+
+
+ROOT_DIR=`pwd`
+TEST_DIR=tmp
+TEST_DIR=$ROOT_DIR/$TEST_DIR
+SETCOLOR_SUCCESS="echo -n \\033[1;32m"
+SETCOLOR_FAILURE="echo -n \\033[1;31m"
+SETCOLOR_NORMAL="echo -n \\033[1;39m"
+
+OK() {
+  $SETCOLOR_SUCCESS
+  echo "\t[OK]"
+  $SETCOLOR_NORMAL
+}
+
+FAILED() {
+  $SETCOLOR_FAILURE
+  echo "\t[FAULED]"
+  $SETCOLOR_NORMAL
+  exit 1
+}
+
+OUTPUT() {
+  echo -n $MSG
+}
+
+prepare() {
+  sudo umount mnt
+  sudo rmmod sifs
+}
+
+run() {
+  make
+  make mkfs.sifs
+  sudo dd if=/dev/zero of=img bs=4096 count=100
+  sudo insmod sifs.ko
+  sudo ./mkfs.sifs img
+  sudo mount -o loop -t sifs img $TEST_DIR
+}
+
+clean() {
+  sudo umount $TEST_DIR
+  sudo rmmod sifs
+  make clean
+}
+
+test_prepare_directory() {
+  MSG="Checking for Directory ${ROOT_DIR}" OUTPUT
+  if [ -d $ROOT_DIR ]; then
+    OK
+  else
+    FAILED
+  fi
+
+  MSG="Creating test Directory $TEST_DIR" OUTPUT
+  mkdir -p $TEST_DIR
+  if [ -d $TEST_DIR ]; then
+    OK
+  else
+    FAILED
+  fi
+
+  MSG="Mounting s2fs on $TEST_DIR" OUTPUT
+  run
+
+  cd $TEST_DIR
+  for file in *; do
+    echo "$file"
+  done
+
+  cd ..
+  clean
+
+  MSG="Removing test Directory $TEST_DIR" OUTPUT
+  rm -r $TEST_DIR
+  if [ ! -d $TEST_DIR ]; then
+    OK
+  else
+    FAILED
+  fi
+
+
+}
+
+cd `dirname $0`
+$SETCOLOR_NORMAL
+
+test_prepare_directory

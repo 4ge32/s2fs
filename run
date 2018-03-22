@@ -1,41 +1,41 @@
 #!/bin/sh
 
 run () {
-	sudo umount mnt
-	sudo rmmod sifs
-	make
-	make mkfs.sifs
-	sudo dd if=/dev/zero of=img bs=4096 count=100
-	sudo insmod sifs.ko
-	sudo ./mkfs.sifs img
-	sudo mount -o loop -t sifs img mnt
+  sudo umount mnt
+  sudo rmmod sifs
+  make
+  make mkfs.sifs
+  sudo dd if=/dev/zero of=img bs=4096 count=100
+  sudo insmod sifs.ko
+  sudo ./mkfs.sifs img
+  sudo mount -o loop -t sifs img mnt
 }
 
 clean () {
-	sudo umount mnt
-	sudo rmmod sifs
-	make clean
+  sudo umount mnt
+  sudo rmmod sifs
+  make clean
 }
 
 mount()
 {
-	sudo mount -o loop -t sifs img mnt
+  sudo mount -o loop -t sifs img mnt
 }
 
 fs_test() {
-	run
-	echo "*** TEST START ***"
+  run
+  echo "*** TEST START ***"
 }
 
 case "$1" in
-	clean)
-		clean
-		;;
-	test)
-		mount
-		;;
-	*)
-		run
-		;;
+  clean)
+    clean
+    ;;
+  test)
+    mount
+    ;;
+  *)
+    run
+    ;;
 esac
 exit 0
