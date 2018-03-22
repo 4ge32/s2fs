@@ -13,7 +13,7 @@ PROG = mkfs.s2fs.c
 all:
 	make -C $(KERN_DIR) SUBDIRS=$(BUILD_DIR) KBUILD_VERBOSE=0 modules
 
-mkfs.sifs: $(PROG)
+mkfs.s2fs: $(PROG)
 	$(CC) $(CFLAGS) -DMKFS -o $@ $(PROG)
 clean:
 	rm -rf *.o *.ko *.mod.c *.symvers *.order *.tmp_versions mkfs.sifs

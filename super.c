@@ -118,12 +118,12 @@ static struct dentry *sifs_mount(struct file_system_type *fs_type,
 
 static struct file_system_type sifs_fs_type = {
 	.owner    = THIS_MODULE,
-	.name     = "sifs",
+	.name     = "s2fs",
 	.mount    = sifs_mount,
 	.kill_sb  = kill_block_super,
 	.fs_flags = FS_REQUIRES_DEV,
 };
-MODULE_ALIAS_FS("sifs");
+MODULE_ALIAS_FS("s2fs");
 
 static int __init init_sifs_fs(void)
 {

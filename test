@@ -1,6 +1,5 @@
 #!/bin/sh
 
-
 ROOT_DIR=`pwd`
 TEST_DIR=tmp
 TEST_DIR=$ROOT_DIR/$TEST_DIR
@@ -27,25 +26,31 @@ OUTPUT() {
 
 prepare() {
   sudo umount mnt
-  sudo rmmod sifs
+  sudo rmmod s2fs
 }
 
 run() {
   make
-  make mkfs.sifs
+  make mkfs.s2fs
   sudo dd if=/dev/zero of=img bs=4096 count=100
-  sudo insmod sifs.ko
-  sudo ./mkfs.sifs img
-  sudo mount -o loop -t sifs img $TEST_DIR
+  sudo insmod s2fs.ko
+  sudo ./mkfs.s2fs img
+  sudo mount -o loop -t s2fs img $TEST_DIR
 }
 
 clean() {
   sudo umount $TEST_DIR
-  sudo rmmod sifs
+  sudo rmmod s2fs
   make clean
 }
 
-test_prepare_directory() {
+test_fs() {
+  cd $TEST_DIR
+  for file in *; do
+  done
+}
+
+test_main() {
   MSG="Checking for Directory ${ROOT_DIR}" OUTPUT
   if [ -d $ROOT_DIR ]; then
     OK
@@ -62,12 +67,11 @@ test_prepare_directory() {
   fi
 
   MSG="Mounting s2fs on $TEST_DIR" OUTPUT
+  echo ""
   run
 
-  cd $TEST_DIR
-  for file in *; do
-    echo "$file"
-  done
+  test_fs
+  OK
 
   cd ..
   clean
@@ -86,4 +90,4 @@ test_prepare_directory() {
 cd `dirname $0`
 $SETCOLOR_NORMAL
 
-test_prepare_directory
+test_main

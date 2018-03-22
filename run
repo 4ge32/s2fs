@@ -2,24 +2,24 @@
 
 run () {
   sudo umount mnt
-  sudo rmmod sifs
+  sudo rmmod s2fs
   make
-  make mkfs.sifs
+  make mkfs.s2fs
   sudo dd if=/dev/zero of=img bs=4096 count=100
-  sudo insmod sifs.ko
-  sudo ./mkfs.sifs img
-  sudo mount -o loop -t sifs img mnt
+  sudo insmod s2fs.ko
+  sudo ./mkfs.s2fs img
+  sudo mount -o loop -t s2fs img mnt
 }
 
 clean () {
   sudo umount mnt
-  sudo rmmod sifs
+  sudo rmmod s2fs
   make clean
 }
 
 mount()
 {
-  sudo mount -o loop -t sifs img mnt
+  sudo mount -o loop -t s2fs img mnt
 }
 
 fs_test() {
