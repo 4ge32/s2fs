@@ -10,20 +10,19 @@
 
 #define S2FS_ROOTDIR_INODE_NUMBER 1
 
-extern struct kmem_cache *s2fs_inode_cachep;
 
 struct s2fs_dir_record {
 	char filename[S2FS_FILENAME_MAX_LEN];
-	uint64_t inode_no;
+	uint32_t inode_no;
 };
 
 struct s2fs_inode {
 	mode_t mode;
-	uint64_t inode_no;
-	uint64_t data_block_number;
-	uint64_t file_size;
-	uint64_t children_count;
 	uint8_t valid;
+	uint32_t inode_no;
+	uint32_t data_block_number;
+	uint32_t children_count;
+	uint32_t file_size;
 	struct s2fs_dir_record *rec;
 };
 
@@ -31,18 +30,10 @@ struct s2fs_inode {
  * s2fs super-block data on disk
  */
 struct s2fs_sb {
-	/*
-	uint64_t vers2on;
-	uint64_t magic;
-	uint64_t block_s2ze;
-	uint64_t inodes;
-	uint64_t freeblocks;
-	*/
 	__le16 version;
 	__le32 magic;
 	__le32 inodes_count;
-	__le32 blocks_count;
-	__le32 free_blocks_count;
+	__le32 freeblocks_count;
 	__le64 block_size;
 };
 
@@ -50,15 +41,15 @@ struct s2fs_sb {
  * s2fs super-block data in memory
  */
 struct s2fs_sb_info {
-	uint64_t version;
-	uint64_t magic;
-	uint64_t block_size;
-	uint64_t inodes_count;
+	uint16_t version;
+	uint32_t magic;
+	uint32_t inodes_count;
 	struct buffer_head *s_bh;
 	struct s2fs_sb *s2_sb;
 };
 
 #ifndef MKFS
+extern struct kmem_cache *s2fs_inode_cachep;
 
 extern const struct file_operations s2fs_dir_ops;
 extern const struct file_operations s2fs_file_ops;

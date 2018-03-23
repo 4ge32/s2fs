@@ -9,83 +9,130 @@
 #define true  1
 #define false 0
 
+/* mke2fs 1.43.5 (04-Aug-2017)
+ * 	Discarding device blocks: done
+ * 	Creating filesystem with 400 1k blocks and 56 inodes
+ *
+ * 	Allocating group tables: done
+ * 	Writing inode tables: done
+ * 	Writing superblocks and filesystem accounting information: done
+ */
 
-static void write_superblock(int fd)
+
+
+static void block_iterator()
+{
+	return;
+}
+
+static int write_superblock(int fd)
 {
 	ssize_t ret;
-
 	struct s2fs_sb sb = {
-		.version = 0,
-		.magic = S2FS_MAGIC,
+		.version      = 0,
+		.magic        = S2FS_MAGIC,
 		.inodes_count = 3,
-		.block_size = BLOCK_DEFAULT_SIZE,
+		.block_size   = BLOCK_DEFAULT_SIZE,
 	};
 
+	block_iterator();
+
+	printf("Writing Superblock\n");
+
 	ret = write(fd, &sb, sizeof(sb));
-}
-
-static ssize_t write_root_inode(int fd)
-{
-	ssize_t ret;
-	struct s2fs_inode root_inode;
-
-	root_inode.mode = S_IFDIR | 0777;
-	root_inode.inode_no = S2FS_ROOTDIR_INODE_NUMBER;
-	root_inode.children_count = 2;
-	root_inode.valid = true;
-
-	ret = write(fd, &root_inode, sizeof(root_inode));
-	if (ret != sizeof(root_inode)) {
-		printf("The inode store was not write properly.\n");
+	if (ret != sizeof(sb)) {
+		printf("The super block was not written properly\n");
+		return 0;
 	}
 
-	return ret;
+	return 1;
+}
+
+static int write_rootinode(int fd)
+{
+	ssize_t ret;
+	struct s2fs_inode rootinode = {
+		rootinode.mode           = S_IFDIR | 0777,
+		rootinode.valid          = true,
+		rootinode.inode_no       = S2FS_ROOTDIR_INODE_NUMBER,
+		rootinode.children_count = 2,
+	};
+
+	printf("Writing Root inode\n");
+
+	ret = write(fd, &rootinode, sizeof(rootinode));
+	if (ret != sizeof(rootinode)) {
+		printf("The root inode was not written properly.\n");
+		return 0;
+	}
+
+	return 1;
 
 }
 
-static ssize_t write_inode(int fd, struct s2fs_inode inode, ssize_t size)
+static int write_inode(int fd, struct s2fs_inode inode)
 {
 	ssize_t ret;
+
+	printf("Writing inode\n");
 
 	ret = write(fd, &inode, sizeof(inode));
 	if (ret != sizeof(inode)) {
-		printf("The inode store was not write properly.\n");
+		printf("The inode was not written properly.\n");
+		return 0;
 	}
+
+	return 1;
 }
 
-static ssize_t write_record(int fd, struct s2fs_dir_record record, ssize_t size)
+static int write_record(int fd, struct s2fs_dir_record record)
 {
 	ssize_t ret;
+
+	printf("Writing entry\n");
 
 	ret = write(fd, &record, sizeof(record));
 	if (ret != sizeof(record)) {
-		printf("The inode store was not write properly.\n");
+		printf("The entry was not written properly.\n");
+		return 0;
 	}
+
+	return 1;
 }
 
-static void write_block(int fd, char *block, size_t len)
+static int write_block(int fd, char *block, size_t len)
 {
 	ssize_t ret;
 
+	printf("Writing file data\n");
+
 	ret = write(fd, block, len);
+
 	if (ret != len) {
-		printf("ERROR: Writing file body.\n");
+		printf("The file data was not written properly.\n");
+		return 0;
 	}
+
 	if (ret != BLOCK_DEFAULT_SIZE) {
 		off_t skip = BLOCK_DEFAULT_SIZE - ret;
-		printf("%ld\n", skip + ret);
 		lseek(fd, skip, SEEK_CUR);
 	}
+
+	return 1;
 }
 
 int main(int argc, char *argv[])
 {
 	int fd;
-	ssize_t size;
+	/*
+	 * Inital contents for test during development
+	 */
 	char file_content[]  = "Sehen Sie mich! Sehen Sie mich! Das Monstrum in meinem Selbst ist So gross geworden!\n";
 	char file_content2[] = "Heute ist die beste Zeit\n";
+
 	size_t f_size = sizeof(file_content);
 	size_t f_size2 = sizeof(file_content2);
+
 	struct s2fs_dir_record record = {
 		.filename = "TEST",
 		.inode_no = S2FS_ROOTDIR_INODE_NUMBER + 1,
@@ -97,6 +144,7 @@ int main(int argc, char *argv[])
 		.file_size = f_size,
 		.valid = true,
 	};
+
 	struct s2fs_dir_record record2 = {
 		.filename = "MEIG",
 		.inode_no = S2FS_ROOTDIR_INODE_NUMBER + 2,
@@ -108,6 +156,7 @@ int main(int argc, char *argv[])
 		.file_size = f_size2,
 		.valid  = true,
 	};
+
 
 	if (argc != 2) {
 		printf("Usage: mkfs.s2fs <device>\n");
@@ -121,21 +170,34 @@ int main(int argc, char *argv[])
 	}
 
 	lseek(fd, 0, SEEK_SET);
-	write_superblock(fd);
+	if (!write_superblock(fd))
+		goto out;
 
 	lseek(fd, 0x1000, SEEK_SET);
-	size = write_root_inode(fd);
-	size += write_inode(fd, inode, 0);
-	write_inode(fd, inode2, size);
+	if (!write_rootinode(fd))
+		goto out;
+	if (!write_inode(fd, inode))
+		goto out;
+	if (!write_inode(fd, inode2))
+		goto out;
 
 	lseek(fd, 0x2000, SEEK_SET);
-	size = write_record(fd, record, 0);
-	write_record(fd, record2, size);
+	if (!write_record(fd, record))
+		goto out;
+	if (!write_record(fd, record2))
+		goto out;
 
 	lseek(fd, 0x3000, SEEK_SET);
-	write_block(fd, file_content, f_size);
-	write_block(fd, file_content2, f_size2);
+	if (!write_block(fd, file_content, f_size))
+		goto out;
+	if (!write_block(fd, file_content2, f_size2))
+		goto out;
 
+	printf("SUCCESS\n");
+	close(fd);
+	return 0;
+out:
+	printf("ERROR\n");
 	close(fd);
 
 	return 0;

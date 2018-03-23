@@ -50,7 +50,7 @@ int s2fs_get_inode_record(struct super_block *sb, struct s2fs_inode *s2_inode)
 
 
 	for (ino = 1; ino <= s2_sb->inodes_count; ino++) {
-		printk("INODE_RECORD: %lld, %lld\n", s2_inode->inode_no, record->inode_no);
+		printk("INODE_RECORD: %d, %d\n", s2_inode->inode_no, record->inode_no);
 		if (s2_inode->inode_no == record->inode_no) {
 			printk("GET RECORD!\n");
 			s2_inode->rec = record;
@@ -60,6 +60,7 @@ int s2fs_get_inode_record(struct super_block *sb, struct s2fs_inode *s2_inode)
 		printk("KERN ken  ");
 	}
 	brelse(bh);
+
 	return 1;
 FOUND:
 	return 0;
@@ -77,7 +78,7 @@ struct s2fs_inode *s2fs_get_inode(struct super_block *sb, uint64_t inode_no)
 	s2_inode = (struct s2fs_inode *)bh->b_data;
 
 	for (ino = 1; ino <= s2_sb->inodes_count; ino++) {
-	printk("%lld\n", s2_inode->inode_no);
+		printk("%d\n", s2_inode->inode_no);
 		if (s2_inode->inode_no == inode_no) {
 			printk("sehen sich mich!\n");
 			s2fs_get_inode_record(sb, s2_inode);
@@ -88,6 +89,7 @@ struct s2fs_inode *s2fs_get_inode(struct super_block *sb, uint64_t inode_no)
 		s2_inode++;
 	}
 	brelse(bh);
+
 	return NULL;
 }
 
@@ -284,13 +286,14 @@ static struct dentry *s2fs_lookup(struct inode *parent_inode, struct dentry *chi
 			inode_init_owner(inode, parent_inode, S2FS_INODE(inode)->mode);
 			d_add(child_dentry, inode);
 			printk("FOUND\n");
-			printk("LOOKUP:%lld\n", S2FS_INODE(inode)->file_size);
+			printk("LOOKUP:%d\n", S2FS_INODE(inode)->file_size);
 			return NULL;
 		}
 		record++;
 	}
 
 	printk("NOT FOUND\n");
+
 	return NULL;
 }
 
@@ -306,12 +309,13 @@ static int s2fs_unlink(struct inode *dir, struct dentry *dentry)
 	struct super_block *sb = dir->i_sb;
 
 	inode->i_ctime = dir->i_ctime = dir->i_mtime = current_time(inode);
-	printk("NOTICE: Unlink old %d and ino %ld\n", s2_inode->valid, dentry->d_inode->i_ino);
+	printk("NOTICE: Unlink old %d and ino %ldd\n", s2_inode->valid, dentry->d_inode->i_ino);
 	s2_inode->valid = false;
 	s2fs_inode_save(sb, s2_inode);
 	printk("NOTICE: Unlink old %d\n", s2_inode->valid);
 	drop_nlink(inode);
 	dput(dentry);
+
 	return 0;
 }
 

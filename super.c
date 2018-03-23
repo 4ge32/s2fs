@@ -5,6 +5,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/buffer_head.h>
+
 #include "s2fs.h"
 
 struct kmem_cache *s2fs_inode_cachep;
