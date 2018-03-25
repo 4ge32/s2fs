@@ -34,11 +34,9 @@ static void destroy_inodecache(void)
 static int s2fs_fill_super(struct super_block *sb, void *data, int s2lent)
 {
 	struct s2fs_sb *s2_sb;
-	struct s2fs_sb *sbi;
 	struct buffer_head *bh;
 	struct inode *root_inode;
 	int ret = -EPERM;
-
 
 	bh = sb_bread(sb, S2FS_SUPER_BLOCK_NUMBER);
 	if (!bh)
@@ -55,21 +53,14 @@ static int s2fs_fill_super(struct super_block *sb, void *data, int s2lent)
 
 	if (unlikely(s2_sb->block_size != BLOCK_DEFAULT_SIZE))
 		goto bsize_mismatch;
-	printk(KERN_INFO "block size is %llu\n", s2_sb->block_size);
-	printk(KERN_INFO "block size is %lu\n", sb->s_blocksize);
 
-	sbi = kzalloc(sizeof(struct s2fs_sb), GFP_KERNEL);
-	sbi = s2_sb;
-
-	//sbi->s_bh = bh;
-	//sbi->s2_sb = sbi;
-	sbi->inodes_count = s2_sb->inodes_count;
-
+	/* fill superblock informatin */
 	sb->s_fs_info = s2_sb;
 	sb->s_magic = S2FS_MAGIC;
 	sb->s_blocksize = BLOCK_DEFAULT_SIZE;
 	sb->s_op = &s2fs_sops;
 
+	/* Make root inode */
 	root_inode = new_inode(sb);
 	root_inode->i_ino = S2FS_ROOTDIR_INODE_NUMBER;
 	inode_init_owner(root_inode, NULL, S_IFDIR);
@@ -77,10 +68,9 @@ static int s2fs_fill_super(struct super_block *sb, void *data, int s2lent)
 	root_inode->i_op = &s2fs_inode_ops;
 	root_inode->i_fop = &s2fs_dir_ops;
 	root_inode->i_private = s2fs_get_inode(sb, S2FS_ROOTDIR_INODE_NUMBER);
+	root_inode->i_mode = S2FS_INODE(root_inode)->mode;
 	if (S2FS_INODE(root_inode) == NULL)
 		return -ENOMEM;
-	root_inode->i_mode = S2FS_INODE(root_inode)->mode;
-
 	if (!S_ISDIR(root_inode->i_mode)) {
 		iput(root_inode);
 		return -EPERM;
@@ -92,7 +82,7 @@ static int s2fs_fill_super(struct super_block *sb, void *data, int s2lent)
 		goto release;
 	}
 
-	printk(KERN_INFO "fill superblock successfully\n");
+	printk(KERN_INFO "Fill superblock successfully\n");
 	return 0;
 
 bsize_mismatch:

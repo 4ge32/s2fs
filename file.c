@@ -14,7 +14,7 @@ static ssize_t s2fs_file_read(struct file *fp, char __user *buf, size_t len, lof
 	if (*ppos >= inode->file_size)
 		return 0;
 
-	printk("data block %lld\n", inode->data_block_number);
+	printk("data block %d\n", inode->data_block_number);
 	bh = sb_bread(fp->f_path.dentry->d_inode->i_sb, inode->data_block_number);
 	if (!bh) {
 		printk("Unable to read the block\n");

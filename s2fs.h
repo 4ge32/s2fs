@@ -10,7 +10,6 @@
 
 #define S2FS_ROOTDIR_INODE_NUMBER 1
 
-
 struct s2fs_dir_record {
 	char filename[S2FS_FILENAME_MAX_LEN];
 	uint32_t inode_no;
@@ -39,6 +38,8 @@ struct s2fs_sb {
 
 /*
  * s2fs super-block data in memory
+ * s2fs_sb_info is not used now...
+ * This will be planed to use it.
  */
 struct s2fs_sb_info {
 	uint16_t version;
@@ -49,6 +50,11 @@ struct s2fs_sb_info {
 };
 
 #ifndef MKFS
+enum {
+	DIRECTORY,
+	REGFILE,
+};
+
 extern struct kmem_cache *s2fs_inode_cachep;
 
 extern const struct file_operations s2fs_dir_ops;

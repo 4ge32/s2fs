@@ -12,7 +12,6 @@ static int s2fs_readdir(struct file *fp, struct dir_context *ctx) {
 	struct s2fs_inode *s2_inode;
 	struct s2fs_inode *dir = S2FS_INODE(fp->f_path.dentry->d_inode);
 	int i;
-	int count = 0;
 
 	pos = ctx->pos;
 	sb = fp->f_inode->i_sb;
@@ -27,13 +26,12 @@ static int s2fs_readdir(struct file *fp, struct dir_context *ctx) {
 	dir_emit_dots(fp, ctx);
 	for (i = 0; i < dir->children_count; i++) {
 		if (s2_inode->rec == NULL) {
-			printk("READDIR: IF NULL %d", count++);
 			s2fs_get_inode_record(sb, s2_inode);
 		}
 		if (s2_inode->rec != NULL) {
 			printk("READDIR: %s\n", s2_inode->rec->filename);
 			printk("READDIR: %p\n", &s2_inode->rec->filename);
-			printk("READDIR: %lld\n", s2_inode->rec->inode_no);
+			printk("READDIR: %d\n", s2_inode->rec->inode_no);
 		}
 		if (!s2_inode->valid) {
 			s2_inode++;

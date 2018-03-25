@@ -7,35 +7,59 @@ static DEFINE_MUTEX(s2fs_sb_lock);
 static DEFINE_MUTEX(s2fs_dir_child_update_lock);
 static DEFINE_MUTEX(s2fs_inodes_lock);
 
-struct inode *s2fs_iget(struct super_block *sb, int ino)
+static struct s2fs_inode *s2fs_inode_search(struct super_block *,
+						struct s2fs_inode *,
+						struct s2fs_inode *);
+
+static int s2fs_set_inode(struct super_block *sb, struct inode *inode, struct s2fs_inode *s2_inode)
 {
-	struct inode *inode;
-	struct s2fs_inode *s2_inode;
+	int ret;
 
-	//inode = iget_locked(sb, ino);
-
-	s2_inode = s2fs_get_inode(sb, ino);
-
-	inode = new_inode(sb);
-	inode->i_ino = ino;
 	inode->i_sb = sb;
 	inode->i_op = &s2fs_inode_ops;
+	inode->i_ino = s2_inode->inode_no;
+	inode->i_mode = s2_inode->mode;
 	inode->i_size = s2_inode->file_size;
-
-	if (S_ISDIR(s2_inode->mode))
-		inode->i_fop = &s2fs_dir_ops;
-	else if (S_ISREG(s2_inode->mode))
-		inode->i_fop = &s2fs_file_ops;
-	else
-		printk("Unknow inode type\n");
-
 	inode->i_atime = inode->i_mtime = inode->i_ctime =
 		current_time(inode);
+	if (S_ISDIR(inode->i_mode)) {
+		inode->i_fop = &s2fs_dir_ops;
+		ret = DIRECTORY;
+	} else if (S_ISREG(inode->i_mode)) {
+		inode->i_fop = &s2fs_file_ops;
+		ret = REGFILE;
+	} else
+		return -EINVAL;
 	inode->i_private = s2_inode;
 
-	//unlock_new_inode(inode);
+	return ret;
+}
 
-	return inode;
+int s2fs_inode_save(struct super_block *sb, struct s2fs_inode *s2_inode)
+{
+	struct s2fs_inode *s2_inode_itr;
+	struct buffer_head *bh;
+
+	bh = sb_bread(sb, S2FS_INODE_STORE_BLOCK_NUMBER);
+
+	s2_inode_itr = s2fs_inode_search(sb, (struct s2fs_inode *)bh->b_data, s2_inode);
+
+	if (s2_inode_itr) {
+		memcpy(s2_inode_itr, s2_inode, sizeof(*s2_inode_itr));
+		mark_buffer_dirty(bh);
+		sync_dirty_buffer(bh);
+	} else {
+		brelse(bh);
+		mutex_unlock(&s2fs_sb_lock);
+		return -EIO;
+	}
+
+	brelse(bh);
+
+	mutex_unlock(&s2fs_sb_lock);
+
+	return 0;
+
 }
 
 int s2fs_get_inode_record(struct super_block *sb, struct s2fs_inode *s2_inode)
@@ -48,7 +72,6 @@ int s2fs_get_inode_record(struct super_block *sb, struct s2fs_inode *s2_inode)
 	bh= sb_bread(sb, S2FS_RECORD_BLOCK_NUMBER);
 	record = (struct s2fs_dir_record *)bh->b_data;
 
-
 	for (ino = 1; ino <= s2_sb->inodes_count; ino++) {
 		printk("INODE_RECORD: %d, %d\n", s2_inode->inode_no, record->inode_no);
 		if (s2_inode->inode_no == record->inode_no) {
@@ -57,12 +80,13 @@ int s2fs_get_inode_record(struct super_block *sb, struct s2fs_inode *s2_inode)
 			goto FOUND;
 		}
 		record++;
-		printk("KERN ken  ");
 	}
+
 	brelse(bh);
 
 	return 1;
 FOUND:
+	brelse(bh);
 	return 0;
 }
 
@@ -93,6 +117,24 @@ struct s2fs_inode *s2fs_get_inode(struct super_block *sb, uint64_t inode_no)
 	return NULL;
 }
 
+struct inode *s2fs_iget(struct super_block *sb, int ino)
+{
+	struct inode *inode;
+	struct s2fs_inode *s2_inode;
+
+	printk("S2FS_IGET");
+
+	inode = iget_locked(sb, ino);
+
+	s2_inode = s2fs_get_inode(sb, ino);
+	inode = new_inode(sb);
+	s2fs_set_inode(sb, inode, s2_inode);
+
+	unlock_new_inode(inode);
+
+	return inode;
+}
+
 static int s2fs_sb_get_objs_count(struct super_block *sb, uint64_t *out)
 {
 	struct s2fs_sb *s2_sb = S2FS_SUPER(sb);
@@ -102,21 +144,21 @@ static int s2fs_sb_get_objs_count(struct super_block *sb, uint64_t *out)
 	}
 
 	*out = s2_sb->inodes_count;
+
 	mutex_unlock(&s2fs_inodes_lock);
 
 	return 0;
 }
-
 
 static void s2fs_sb_sync(struct super_block *sb) {
 	struct buffer_head *bh;
 	struct s2fs_sb *s2_sb = S2FS_SUPER(sb);
 
 	bh = sb_bread(sb, S2FS_SUPER_BLOCK_NUMBER);
-
 	bh->b_data = (char *)s2_sb;
 	mark_buffer_dirty(bh);
 	sync_dirty_buffer(bh);
+
 	brelse(bh);
 }
 
@@ -135,6 +177,7 @@ static void s2fs_inode_add(struct super_block *sb, struct s2fs_inode *inode)
 	s2_inode += s2_sb->inodes_count;
 	memcpy(s2_inode, inode, sizeof(struct s2fs_inode));
 	s2_sb->inodes_count++;
+
 	mark_buffer_dirty(bh);
 	s2fs_sb_sync(sb);
 
@@ -160,40 +203,10 @@ static struct s2fs_inode *s2fs_inode_search(struct super_block *sb,
 	return NULL;
 }
 
-int s2fs_inode_save(struct super_block *sb, struct s2fs_inode *s2_inode)
-{
-	struct s2fs_inode *s2_inode_itr;
-	struct buffer_head *bh;
-
-	bh = sb_bread(sb, S2FS_INODE_STORE_BLOCK_NUMBER);
-
-	if (mutex_lock_interruptible(&s2fs_sb_lock)) {
-		return -EINTR;
-	}
-
-	s2_inode_itr = s2fs_inode_search(sb, (struct s2fs_inode *)bh->b_data, s2_inode);
-
-	if (s2_inode_itr) {
-		memcpy(s2_inode_itr, s2_inode, sizeof(*s2_inode_itr));
-		mark_buffer_dirty(bh);
-		sync_dirty_buffer(bh);
-	} else {
-		brelse(bh);
-		mutex_unlock(&s2fs_sb_lock);
-		return -EIO;
-	}
-
-	brelse(bh);
-	mutex_unlock(&s2fs_sb_lock);
-
-	return 0;
-
-}
-
 static int s2fs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl)
 {
 	struct super_block *sb;
-	struct inode *inode;
+	struct inode *inode = NULL;
 	struct s2fs_inode *s2_inode;
 	struct s2fs_inode *parent_dir_inode;
 	struct s2fs_dir_record *new_record;
@@ -209,47 +222,35 @@ static int s2fs_create(struct inode *dir, struct dentry *dentry, umode_t mode, b
 
 	sb = dir->i_sb;
 
-	ret = s2fs_sb_get_objs_count(sb, &count);
-
-	inode = new_inode(sb);
-	inode->i_sb = sb;
-	inode->i_op = &s2fs_inode_ops;
-	inode->i_atime = current_time(inode);
-	inode->i_ino = (count + S2FS_ROOTDIR_INODE_NUMBER);
+	s2fs_sb_get_objs_count(sb, &count);
 
 	s2_inode = kmem_cache_alloc(s2fs_inode_cachep, GFP_KERNEL);
-	s2_inode->inode_no = inode->i_ino;
+	s2_inode->inode_no = (count + S2FS_ROOTDIR_INODE_NUMBER);
 	s2_inode->mode = mode;
 	s2_inode->valid = true;
-	inode->i_private = s2_inode;
+	s2_inode->file_size = 0;
 
-
-	if (S_ISDIR(mode)) {
+	inode = new_inode(sb);
+	ret = s2fs_set_inode(sb, inode, s2_inode);
+	if (ret == DIRECTORY)
 		printk(KERN_INFO "New directory creation request\n");
-		s2_inode->children_count = 0;
-		inode->i_fop = &s2fs_dir_ops;
-	} else if (S_ISREG(mode)) {
+	else if (ret == REGFILE) {
 		printk(KERN_INFO "New file creation request\n");
-		s2_inode->file_size = 0;
 		s2_inode->data_block_number = s2_inode->inode_no +
 					S2FS_RECORD_BLOCK_NUMBER - 1;
-		inode->i_fop = &s2fs_file_ops;
 	} else
-		return -EINVAL;
-
+		return ret;
 
 	s2fs_inode_add(sb, s2_inode);
 
 	parent_dir_inode = S2FS_INODE(dir);
 	bh = sb_bread(sb, S2FS_RECORD_BLOCK_NUMBER);
-
 	/* ORDER is important */
 	new_record = (struct s2fs_dir_record *)bh->b_data;
 	new_record += parent_dir_inode->inode_no + parent_dir_inode->children_count - 1;
 	new_record->inode_no = s2_inode->inode_no;
 	strcpy(new_record->filename, dentry->d_name.name);
 	s2_inode->rec = new_record;
-
 
 	mark_buffer_dirty(bh);
 	sync_dirty_buffer(bh);
@@ -273,20 +274,24 @@ static struct dentry *s2fs_lookup(struct inode *parent_inode, struct dentry *chi
 	struct super_block *sb = parent_inode->i_sb;
 	struct buffer_head *bh;
 	struct s2fs_dir_record *record;
-	int i;
+	int child;
 	printk("LOOKUP\n");
 
 	bh = sb_bread(sb, S2FS_INODE_STORE_BLOCK_NUMBER + 1);
 	record = (struct s2fs_dir_record *)bh->b_data;
 	printk("%s\n", record->filename);
 
-	for (i = 0; i < parent->children_count; i++) {
+	for (child = 0; child < parent->children_count; child++) {
+
 		if (!strcmp(record->filename, child_dentry->d_name.name)) {
 			struct inode *inode = s2fs_iget(sb, record->inode_no);
+
 			inode_init_owner(inode, parent_inode, S2FS_INODE(inode)->mode);
 			d_add(child_dentry, inode);
+
 			printk("FOUND\n");
 			printk("LOOKUP:%d\n", S2FS_INODE(inode)->file_size);
+
 			return NULL;
 		}
 		record++;
