@@ -55,4 +55,5 @@ out:
 
 const struct file_operations s2fs_dir_ops = {
 	.iterate        = s2fs_readdir,
+	.llseek         = s2fs_file_llseek,
 };

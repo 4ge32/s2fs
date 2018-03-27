@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <fcntl.h>
+#include <string.h>
 #include <linux/types.h>
 
 #include "s2fs.h"
@@ -130,8 +131,8 @@ int main(int argc, char *argv[])
 	char file_content[]  = "Sehen Sie mich! Sehen Sie mich! Das Monstrum in meinem Selbst ist So gross geworden!\n";
 	char file_content2[] = "Heute ist die beste Zeit\n";
 
-	size_t f_size = sizeof(file_content);
-	size_t f_size2 = sizeof(file_content2);
+	size_t f_size = strlen(file_content);
+	size_t f_size2 = strlen(file_content2);
 
 	struct s2fs_dir_record record = {
 		.filename = "TEST",

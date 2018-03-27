@@ -66,6 +66,8 @@ struct inode *s2fs_iget(struct super_block *, int);
 int s2fs_inode_save(struct super_block *, struct s2fs_inode *);
 int s2fs_get_inode_record(struct super_block *, struct s2fs_inode *);
 
+loff_t s2fs_file_llseek(struct file *, loff_t , int);
+
 static inline struct s2fs_sb *S2FS_SUPER(struct super_block *sb) {
 	return sb->s_fs_info;
 }

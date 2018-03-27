@@ -135,7 +135,7 @@ test_main() {
 
   test_entry
   test_data
-  test_append
+  #test_append
 
   MSG="Clean and Removing test Directory $TEST_DIR" OUTPUTN
   clean

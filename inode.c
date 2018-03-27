@@ -44,6 +44,10 @@ int s2fs_inode_save(struct super_block *sb, struct s2fs_inode *s2_inode)
 
 	s2_inode_itr = s2fs_inode_search(sb, (struct s2fs_inode *)bh->b_data, s2_inode);
 
+	if (mutex_lock_interruptible(&s2fs_sb_lock)) {
+		return -EINTR;
+	}
+
 	if (s2_inode_itr) {
 		memcpy(s2_inode_itr, s2_inode, sizeof(*s2_inode_itr));
 		mark_buffer_dirty(bh);
@@ -124,13 +128,13 @@ struct inode *s2fs_iget(struct super_block *sb, int ino)
 
 	printk("S2FS_IGET");
 
-	inode = iget_locked(sb, ino);
+	//inode = iget_locked(sb, ino);
 
 	s2_inode = s2fs_get_inode(sb, ino);
 	inode = new_inode(sb);
 	s2fs_set_inode(sb, inode, s2_inode);
 
-	unlock_new_inode(inode);
+	//unlock_new_inode(inode);
 
 	return inode;
 }
@@ -238,8 +242,10 @@ static int s2fs_create(struct inode *dir, struct dentry *dentry, umode_t mode, b
 		printk(KERN_INFO "New file creation request\n");
 		s2_inode->data_block_number = s2_inode->inode_no +
 					S2FS_RECORD_BLOCK_NUMBER - 1;
-	} else
+	} else {
+		printk("INODE - CREATE: OTHER");
 		return ret;
+	}
 
 	s2fs_inode_add(sb, s2_inode);
 
@@ -313,13 +319,16 @@ static int s2fs_unlink(struct inode *dir, struct dentry *dentry)
 	struct s2fs_inode *s2_inode = S2FS_INODE(inode);
 	struct super_block *sb = dir->i_sb;
 
+	printk("INODE - UNLINK: %ld", inode->i_ino);
+
 	inode->i_ctime = dir->i_ctime = dir->i_mtime = current_time(inode);
-	printk("NOTICE: Unlink old %d and ino %ldd\n", s2_inode->valid, dentry->d_inode->i_ino);
 	s2_inode->valid = false;
 	s2fs_inode_save(sb, s2_inode);
-	printk("NOTICE: Unlink old %d\n", s2_inode->valid);
 	drop_nlink(inode);
 	dput(dentry);
+
+	printk("NOTICE: Unlink old %d\n", s2_inode->valid);
+	printk("NOTICE: Unlink old %d and ino %ldd\n", s2_inode->valid, dentry->d_inode->i_ino);
 
 	return 0;
 }
