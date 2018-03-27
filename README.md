@@ -21,8 +21,8 @@ rmmod s2fs.ko
 |  Super  | inode | file info | file data   |  　
 |  block  | table |   block   |    block    |
 =============================================
+   4KB       4KB      4KB      REST of block
 ```
 
 ## Next Work
-1. Add test script. 
-2. Clean the entire code. 
+1. Enable to write multiple blocks in a file.

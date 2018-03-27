@@ -144,6 +144,7 @@ int main(int argc, char *argv[])
 		.data_block_number = S2FS_ROOTDIR_DATABLOCK_NUMBER,
 		.file_size = f_size,
 		.valid = true,
+		.ref_count = 0,
 	};
 
 	struct s2fs_dir_record record2 = {
@@ -156,6 +157,7 @@ int main(int argc, char *argv[])
 		.data_block_number = S2FS_ROOTDIR_DATABLOCK_NUMBER + 1,
 		.file_size = f_size2,
 		.valid  = true,
+		.ref_count = 0,
 	};
 
 

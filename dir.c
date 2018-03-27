@@ -25,6 +25,10 @@ static int s2fs_readdir(struct file *fp, struct dir_context *ctx) {
 
 	dir_emit_dots(fp, ctx);
 	for (i = 0; i < dir->children_count; i++) {
+		if (!s2_inode->valid) {
+			s2_inode++;
+			continue;
+		}
 		if (s2_inode->rec == NULL) {
 			s2fs_get_inode_record(sb, s2_inode);
 		}

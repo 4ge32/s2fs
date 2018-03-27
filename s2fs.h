@@ -22,6 +22,7 @@ struct s2fs_inode {
 	uint32_t data_block_number;
 	uint32_t children_count;
 	uint32_t file_size;
+	uint32_t ref_count;
 	struct s2fs_dir_record *rec;
 };
 

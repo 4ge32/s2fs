@@ -107,6 +107,8 @@ struct s2fs_inode *s2fs_get_inode(struct super_block *sb, uint64_t inode_no)
 
 	for (ino = 1; ino <= s2_sb->inodes_count; ino++) {
 		printk("%d\n", s2_inode->inode_no);
+		if (!s2_inode->valid)
+			continue;
 		if (s2_inode->inode_no == inode_no) {
 			printk("sehen sich mich!\n");
 			s2fs_get_inode_record(sb, s2_inode);
@@ -131,6 +133,8 @@ struct inode *s2fs_iget(struct super_block *sb, int ino)
 	//inode = iget_locked(sb, ino);
 
 	s2_inode = s2fs_get_inode(sb, ino);
+	if (s2_inode == NULL)
+		return NULL;
 	inode = new_inode(sb);
 	s2fs_set_inode(sb, inode, s2_inode);
 
@@ -233,6 +237,7 @@ static int s2fs_create(struct inode *dir, struct dentry *dentry, umode_t mode, b
 	s2_inode->mode = mode;
 	s2_inode->valid = true;
 	s2_inode->file_size = 0;
+	s2_inode->ref_count = 0;
 
 	inode = new_inode(sb);
 	ret = s2fs_set_inode(sb, inode, s2_inode);
@@ -280,17 +285,19 @@ static struct dentry *s2fs_lookup(struct inode *parent_inode, struct dentry *chi
 	struct super_block *sb = parent_inode->i_sb;
 	struct buffer_head *bh;
 	struct s2fs_dir_record *record;
-	int child;
+	int ino;
 	printk("LOOKUP\n");
 
-	bh = sb_bread(sb, S2FS_INODE_STORE_BLOCK_NUMBER + 1);
+	bh = sb_bread(sb, S2FS_RECORD_BLOCK_NUMBER);
 	record = (struct s2fs_dir_record *)bh->b_data;
 	printk("%s\n", record->filename);
 
-	for (child = 0; child < parent->children_count; child++) {
+	for (ino = 0; ino < parent->children_count; ino++) {
 
 		if (!strcmp(record->filename, child_dentry->d_name.name)) {
 			struct inode *inode = s2fs_iget(sb, record->inode_no);
+			if (inode == NULL)
+				goto out;
 
 			inode_init_owner(inode, parent_inode, S2FS_INODE(inode)->mode);
 			d_add(child_dentry, inode);
@@ -303,6 +310,7 @@ static struct dentry *s2fs_lookup(struct inode *parent_inode, struct dentry *chi
 		record++;
 	}
 
+out:
 	printk("NOT FOUND\n");
 
 	return NULL;
@@ -328,8 +336,16 @@ static int s2fs_unlink(struct inode *dir, struct dentry *dentry)
 	dput(dentry);
 
 	printk("NOTICE: Unlink old %d\n", s2_inode->valid);
-	printk("NOTICE: Unlink old %d and ino %ldd\n", s2_inode->valid, dentry->d_inode->i_ino);
+	printk("NOTICE: Unlink old %d and ino %ld\n", s2_inode->valid, dentry->d_inode->i_ino);
 
+	return 0;
+}
+
+static int s2fs_rename(struct inode * old_dir, struct dentry * old_dentry,
+			struct inode * new_dir,	struct dentry * new_dentry,
+			unsigned int flags)
+{
+	printk("INODE - RENAME");
 	return 0;
 }
 
@@ -338,4 +354,5 @@ const struct inode_operations s2fs_inode_ops = {
 	.lookup = s2fs_lookup,
 	.mkdir  = s2fs_mkdir,
 	.unlink = s2fs_unlink,
+	.rename = s2fs_rename,
 };

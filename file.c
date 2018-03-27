@@ -42,6 +42,12 @@ loff_t s2fs_file_llseek(struct file *fp, loff_t offset, int whence)
 
 static int s2fs_file_open(struct inode *inode, struct file *fp)
 {
+	struct s2fs_inode *s2_inode = S2FS_INODE(inode);
+
+	s2_inode->ref_count++;
+
+	printk("OPEN - FILE: refcount %d %s\n", s2_inode->ref_count, s2_inode->rec->filename);
+
 	if (fp->f_mode & FMODE_WRITE) {
 		printk("OPEN - FILE: WRITE MODE");
 	} else if (fp->f_mode & FMODE_READ) {
@@ -54,7 +60,9 @@ static int s2fs_file_open(struct inode *inode, struct file *fp)
 
 static int s2fs_file_release(struct inode *inode, struct file *fp)
 {
-	fp->f_pos = 0;
+	struct s2fs_inode *s2_inode = S2FS_INODE(inode);
+
+	s2_inode->ref_count--;
 
 	return 0;
 }
@@ -114,9 +122,7 @@ static ssize_t s2fs_file_write(struct file *fp, const char __user *buf, size_t l
 	if (mutex_lock_interruptible(&s2fs_file_write_lock))
 		return -EINTR;
 
-	buffer += *ppos;
-	//buffer += fp->f_pos;
-	//buf += fp->f_pos - 1;
+	//buffer += *ppos;
 
 	if (copy_from_user(buffer, buf, len)) {
 		brelse(bh);
@@ -124,14 +130,12 @@ static ssize_t s2fs_file_write(struct file *fp, const char __user *buf, size_t l
 		return -EFAULT;
 	}
 
-	//*ppos += len;
-
 	mark_buffer_dirty(bh);
 	sync_dirty_buffer(bh);
 	brelse(bh);
 
-	s2_inode->file_size = strlen(buf);
-	inode->i_size = strlen(buf);
+	s2_inode->file_size = strlen(buf) - 1;
+	inode->i_size = strlen(buf) - 1;
 
 	mutex_unlock(&s2fs_file_write_lock);
 
