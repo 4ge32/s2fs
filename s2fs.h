@@ -61,6 +61,7 @@ extern struct kmem_cache *s2fs_inode_cachep;
 extern const struct file_operations s2fs_dir_ops;
 extern const struct file_operations s2fs_file_ops;
 extern const struct inode_operations s2fs_inode_ops;
+extern const struct address_space_operations s2fs_aops;
 
 struct s2fs_inode *s2fs_get_inode(struct super_block *, uint64_t);
 struct inode *s2fs_iget(struct super_block *, int);

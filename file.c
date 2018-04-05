@@ -1,6 +1,9 @@
 #include <linux/fs.h>
 #include <linux/buffer_head.h>
 #include <linux/quotaops.h>
+#include <linux/backing-dev.h>
+#include <linux/uio.h>
+#include <linux/sched/signal.h>
 
 #include "s2fs.h"
 
@@ -100,48 +103,187 @@ static ssize_t s2fs_file_read(struct file *fp, char __user *buf, size_t len, lof
 	return nbytes;
 }
 
-static ssize_t s2fs_file_write(struct file *fp, const char __user *buf, size_t len, loff_t *ppos)
+//static ssize_t s2fs_file_write(struct file *fp, const char __user *buf, size_t len, loff_t *ppos)
+//{
+//	struct s2fs_inode *s2_inode;
+//	struct inode *inode;
+//	struct buffer_head *bh;
+//	struct super_block *sb;
+//	struct s2fs_sb *s2_sb;
+//	char *buffer;
+//
+//	printk("WRITE - POS - FILE: %lld", fp->f_pos);
+//
+//	sb = fp->f_path.dentry->d_inode->i_sb;
+//	s2_sb = S2FS_SUPER(sb);
+//	inode = fp->f_path.dentry->d_inode;
+//	s2_inode = S2FS_INODE(inode);
+//
+//	bh = sb_bread(sb, s2_inode->data_block_number);
+//	buffer = (char *)bh->b_data;
+//
+//	if (mutex_lock_interruptible(&s2fs_file_write_lock))
+//		return -EINTR;
+//
+//	//buffer += *ppos;
+//
+//	if (copy_from_user(buffer, buf, len)) {
+//		brelse(bh);
+//		printk("Unable to copy file contents from userspace\n");
+//		return -EFAULT;
+//	}
+//
+//	mark_buffer_dirty(bh);
+//	sync_dirty_buffer(bh);
+//	brelse(bh);
+//
+//	s2_inode->file_size = strlen(buf) - 1;
+//	inode->i_size = strlen(buf) - 1;
+//
+//	mutex_unlock(&s2fs_file_write_lock);
+//
+//	s2fs_inode_save(sb, s2_inode);
+//
+//	return len;
+//}
+
+
+ssize_t s2fs_perform_write(struct file *file,
+	        	   struct iov_iter *i, loff_t pos)
 {
-	struct s2fs_inode *s2_inode;
-	struct inode *inode;
-	struct buffer_head *bh;
-	struct super_block *sb;
-	struct s2fs_sb *s2_sb;
-	char *buffer;
+	struct address_space *mapping = file->f_mapping;
+	const struct address_space_operations *a_ops = mapping->a_ops;
+	long status = 0;
+	ssize_t written = 0;
+	unsigned int flags = 0;
+	static int count = 0;
 
-	printk("WRITE - POS - FILE: %lld", fp->f_pos);
+	do {
+		struct page *page;
+		unsigned long offset;	/* Offset into pagecache page */
+		unsigned long bytes;	/* Bytes to write to page */
+		size_t copied;		/* Bytes copied from user */
+		void *fsdata;
 
-	sb = fp->f_path.dentry->d_inode->i_sb;
-	s2_sb = S2FS_SUPER(sb);
-	inode = fp->f_path.dentry->d_inode;
-	s2_inode = S2FS_INODE(inode);
+		offset = (pos & (PAGE_SIZE - 1));
+		bytes = min_t(unsigned long, PAGE_SIZE - offset,
+						iov_iter_count(i));
 
-	bh = sb_bread(sb, s2_inode->data_block_number);
-	buffer = (char *)bh->b_data;
+again:
+		/*
+		 * Bring in the user page that we will copy from _first_.
+		 * Otherwise there's a nasty deadlock on copying from the
+		 * same page as we're writing to, without it being marked
+		 * up-to-date.
+		 *
+		 * Not only is this an optimisation, but it is also required
+		 * to check that the address is actually valid, when atomic
+		 * usercopies are used, below.
+		 */
+		if (unlikely(iov_iter_fault_in_readable(i, bytes))) {
+			status = -EFAULT;
+			break;
+		}
 
-	if (mutex_lock_interruptible(&s2fs_file_write_lock))
-		return -EINTR;
+		if (fatal_signal_pending(current)) {
+			status = -EINTR;
+			break;
+		}
 
-	//buffer += *ppos;
+		printk("%d:HERE?", count++);
+		status = a_ops->write_begin(file, mapping, pos, bytes, flags,
+						&page, &fsdata);
+		printk("%d:HERE?", count++);
+		if (unlikely(status < 0))
+			break;
 
-	if (copy_from_user(buffer, buf, len)) {
-		brelse(bh);
-		printk("Unable to copy file contents from userspace\n");
-		return -EFAULT;
+		if (mapping_writably_mapped(mapping))
+			flush_dcache_page(page);
+
+		printk("%d:HERE?", count++);
+		copied = iov_iter_copy_from_user_atomic(page, i, offset, bytes);
+		printk("%d:HERE?", count++);
+		flush_dcache_page(page);
+		printk("%d:HERE?", count++);
+
+		status = a_ops->write_end(file, mapping, pos, bytes, copied,
+						page, fsdata);
+		printk("%d:HERE?", count++);
+		if (unlikely(status < 0))
+			break;
+		copied = status;
+
+		cond_resched();
+
+		iov_iter_advance(i, copied);
+		if (unlikely(copied == 0)) {
+			/*
+			 * If we were unable to copy any data at all, we must
+			 * fall back to a single segment length write.
+			 *
+			 * If we didn't fallback here, we could livelock
+			 * because not all segments in the iov can be copied at
+			 * once without a pagefault.
+			 */
+			bytes = min_t(unsigned long, PAGE_SIZE - offset,
+						iov_iter_single_seg_count(i));
+			goto again;
+		}
+		pos += copied;
+		written += copied;
+
+		balance_dirty_pages_ratelimited(mapping);
+	} while (iov_iter_count(i));
+
+	return written ? written : status;
+}
+
+ssize_t __s2fs_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
+{
+	struct file *file = iocb->ki_filp;
+	struct address_space * mapping = file->f_mapping;
+	struct inode 	*inode = mapping->host;
+	ssize_t		written = 0;
+	ssize_t		err;
+
+	/* We can write back this queue in page reclaim */
+	current->backing_dev_info = inode_to_bdi(inode);
+	err = file_remove_privs(file);
+	if (err)
+		goto out;
+
+	err = file_update_time(file);
+	if (err)
+		goto out;
+
+	printk("WRITE_ITER: UPDATE OK!\n");
+
+	printk("WRITE_ITER: NOT DIRECT IO!\n");
+	written = s2fs_perform_write(file, from, iocb->ki_pos);
+	if (likely(written > 0))
+		iocb->ki_pos += written;
+out:
+	current->backing_dev_info = NULL;
+	return written ? written : err;
+}
+
+static ssize_t s2fs_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
+{
+	struct file *file = iocb->ki_filp;
+	struct inode *inode = file->f_mapping->host;
+	ssize_t ret;
+
+	inode_lock(inode);
+	ret = generic_write_checks(iocb, from);
+	if (ret > 0) {
+		printk("WRITE_ITER: OK\n");
+		ret = __s2fs_file_write_iter(iocb, from);
 	}
+	inode_unlock(inode);
 
-	mark_buffer_dirty(bh);
-	sync_dirty_buffer(bh);
-	brelse(bh);
-
-	s2_inode->file_size = strlen(buf) - 1;
-	inode->i_size = strlen(buf) - 1;
-
-	mutex_unlock(&s2fs_file_write_lock);
-
-	s2fs_inode_save(sb, s2_inode);
-
-	return len;
+	if (ret > 0)
+		ret = generic_write_sync(iocb, ret);
+	return ret;
 }
 
 static int s2fs_file_fsync(struct file *fp, loff_t start, loff_t end, int datasync)
@@ -153,7 +295,9 @@ const struct file_operations s2fs_file_ops = {
 	.llseek  = s2fs_file_llseek,
 	.open    = s2fs_file_open,
 	.release = s2fs_file_release,
-	.read    = s2fs_file_read,
-	.write   = s2fs_file_write,
+	//.read    = s2fs_file_read,
+	//.write   = s2fs_file_write,
+	.read_iter = generic_file_read_iter,
+	.write_iter   = s2fs_file_write_iter,
 	.fsync   = s2fs_file_fsync,
 };

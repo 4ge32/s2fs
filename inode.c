@@ -20,6 +20,7 @@ static int s2fs_set_inode(struct super_block *sb, struct inode *inode, struct s2
 	inode->i_ino = s2_inode->inode_no;
 	inode->i_mode = s2_inode->mode;
 	inode->i_size = s2_inode->file_size;
+	inode->i_mapping->a_ops = &s2fs_aops;
 	inode->i_atime = inode->i_mtime = inode->i_ctime =
 		current_time(inode);
 	if (S_ISDIR(inode->i_mode)) {
@@ -353,6 +354,46 @@ const struct inode_operations s2fs_inode_ops = {
 	.create = s2fs_create,
 	.lookup = s2fs_lookup,
 	.mkdir  = s2fs_mkdir,
-	.unlink = s2fs_unlink,
+	//.unlink = s2fs_unlink,
 	.rename = s2fs_rename,
+};
+
+static int s2fs_get_block(struct inode *inode, sector_t block,
+			  struct buffer_head *bh, int create)
+{
+	return 1;
+}
+
+static int
+s2fs_write_begin(struct file *file, struct address_space *mapping,
+		loff_t pos, unsigned len, unsigned flags,
+		struct page **pagep, void **fsdata)
+{
+	int ret;
+
+	ret = block_write_begin(mapping, pos, len, flags, pagep,
+				s2fs_get_block);
+	//if (ret < 0)
+	//	ext2_write_failed(mapping, pos + len);
+	return ret;
+}
+
+static int s2fs_write_end(struct file *file, struct address_space *mapping,
+			loff_t pos, unsigned len, unsigned copied,
+			struct page *page, void *fsdata)
+{
+	int ret;
+
+	ret = generic_write_end(file, mapping, pos, len, copied, page, fsdata);
+	//if (ret < len)
+	//	ext2_write_failed(mapping, pos + len);
+	return ret;
+}
+
+
+const struct address_space_operations s2fs_aops = {
+	.readpage               = simple_readpage,
+	.writepage              = simple_write_end,
+	.write_begin		= simple_write_begin,
+	.write_end		= simple_write_end,
 };
