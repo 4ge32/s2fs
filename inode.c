@@ -3,7 +3,7 @@
 
 #include "s2fs.h"
 
-static DEFINE_MUTEX(s2fs_sbi_info_lock);
+static DEFINE_MUTEX(s2fs_sb_info_lock);
 static DEFINE_MUTEX(s2fs_dir_child_update_lock);
 static DEFINE_MUTEX(s2fs_inode_infos_lock);
 
@@ -47,7 +47,7 @@ int s2fs_inode_info_save(struct super_block *sbi, struct s2fs_inode_info *s2_ino
 
 	s2_inode_itr = s2fs_inode_info_search(sbi, (struct s2fs_inode_info *)bh->b_data, s2_inode);
 
-	if (mutex_lock_interruptible(&s2fs_sbi_info_lock)) {
+	if (mutex_lock_interruptible(&s2fs_sb_info_lock)) {
 		return -EINTR;
 	}
 
@@ -57,13 +57,13 @@ int s2fs_inode_info_save(struct super_block *sbi, struct s2fs_inode_info *s2_ino
 		sync_dirty_buffer(bh);
 	} else {
 		brelse(bh);
-		mutex_unlock(&s2fs_sbi_info_lock);
+		mutex_unlock(&s2fs_sb_info_lock);
 		return -EIO;
 	}
 
 	brelse(bh);
 
-	mutex_unlock(&s2fs_sbi_info_lock);
+	mutex_unlock(&s2fs_sb_info_lock);
 
 	return 0;
 
@@ -73,7 +73,7 @@ int s2fs_get_inode_record(struct super_block *sbi, struct s2fs_inode_info *s2_in
 {
 	struct buffer_head *bh;
 	struct s2fs_dir_record *record;
-	struct s2fs_sbi_info *s2_sbi = S2FS_SUPER(sbi);
+	struct s2fs_sb_info *s2_sbi = S2FS_SUPER(sbi);
 	int ino;
 
 	bh= sb_bread(sbi, S2FS_RECORD_BLOCK_NUMBER);
@@ -100,7 +100,7 @@ FOUND:
 struct s2fs_inode_info *s2fs_get_inode(struct super_block *sbi, uint64_t inode_no)
 {
 	int ino;
-	struct s2fs_sbi_info *s2_sbi = sbi->s_fs_info;
+	struct s2fs_sb_info *s2_sbi = sbi->s_fs_info;
 	struct buffer_head *bh;
 	struct s2fs_inode_info *s2_inode;
 	struct s2fs_inode_info *inode_buf = NULL;
@@ -115,7 +115,7 @@ struct s2fs_inode_info *s2fs_get_inode(struct super_block *sbi, uint64_t inode_n
 		if (s2_inode->inode_no == inode_no) {
 			printk("sehen sich mich!\n");
 			s2fs_get_inode_record(sbi, s2_inode);
-			inode_buf = kmem_cache_alloc(s2fs_inode_info_cachep, GFP_KERNEL);
+			inode_buf = kmem_cache_alloc(s2fs_inode_cachep, GFP_KERNEL);
 			memcpy(inode_buf, s2_inode, sizeof(*inode_buf));
 			return inode_buf;
 		}
@@ -146,9 +146,9 @@ struct inode *s2fs_iget(struct super_block *sbi, int ino)
 	return inode;
 }
 
-static int s2fs_sbi_info_get_objs_count(struct super_block *sbi, uint64_t *out)
+static int s2fs_sb_info_get_objs_count(struct super_block *sbi, uint64_t *out)
 {
-	struct s2fs_sbi_info *s2_sbi = S2FS_SUPER(sbi);
+	struct s2fs_sb_info *s2_sbi = S2FS_SUPER(sbi);
 
 	if (mutex_lock_interruptible(&s2fs_inode_infos_lock)) {
 		return -EINTR;
@@ -161,9 +161,9 @@ static int s2fs_sbi_info_get_objs_count(struct super_block *sbi, uint64_t *out)
 	return 0;
 }
 
-static void s2fs_sbi_info_sync(struct super_block *sbi) {
+static void s2fs_sb_info_sync(struct super_block *sbi) {
 	struct buffer_head *bh;
-	struct s2fs_sbi_info *s2_sbi = S2FS_SUPER(sbi);
+	struct s2fs_sb_info *s2_sbi = S2FS_SUPER(sbi);
 
 	bh = sb_bread(sbi, S2FS_SUPER_BLOCK_NUMBER);
 	bh->b_data = (char *)s2_sbi;
@@ -175,7 +175,7 @@ static void s2fs_sbi_info_sync(struct super_block *sbi) {
 
 static void s2fs_inode_info_add(struct super_block *sbi, struct s2fs_inode_info *inode)
 {
-	struct s2fs_sbi_info *s2_sbi = S2FS_SUPER(sbi);
+	struct s2fs_sb_info *s2_sbi = S2FS_SUPER(sbi);
 	struct buffer_head *bh;
 	struct s2fs_inode_info *s2_inode;
 
@@ -190,7 +190,7 @@ static void s2fs_inode_info_add(struct super_block *sbi, struct s2fs_inode_info 
 	s2_sbi->s_ninodes++;
 
 	mark_buffer_dirty(bh);
-	s2fs_sbi_info_sync(sbi);
+	s2fs_sb_info_sync(sbi);
 
 	mutex_unlock(&s2fs_inode_infos_lock);
 }
@@ -233,9 +233,9 @@ static int s2fs_create(struct inode *dir, struct dentry *dentry, umode_t mode, b
 
 	sbi = dir->i_sb;
 
-	s2fs_sbi_info_get_objs_count(sbi, &count);
+	s2fs_sb_info_get_objs_count(sbi, &count);
 
-	s2_inode = kmem_cache_alloc(s2fs_inode_info_cachep, GFP_KERNEL);
+	s2_inode = kmem_cache_alloc(s2fs_inode_cachep, GFP_KERNEL);
 	s2_inode->inode_no = (count + S2FS_ROOT_INO);
 	s2_inode->mode = mode;
 	s2_inode->valid = true;

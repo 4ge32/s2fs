@@ -33,7 +33,7 @@ static struct page * dir_get_page(struct inode *dir, unsigned long n)
 	return page;
 }
 
-static inline void *s2fs_next_entry(void *de, struct s2fs_sbi_info *sbii)
+static inline void *s2fs_next_entry(void *de, struct s2fs_sb_info *sbi)
 {
 	return (void*)((char*)de + 64);
 }
@@ -41,8 +41,8 @@ static inline void *s2fs_next_entry(void *de, struct s2fs_sbi_info *sbii)
 static int s2fs_readdir(struct file *fp, struct dir_context *ctx)
 {
 	struct inode *inode = file_inode(fp);
-	struct super_block *sbi = fp->f_inode->i_sb;
-	struct s2fs_sbi_info *sbii = S2FS_SUPER(sbi);
+	struct super_block *sb = fp->f_inode->i_sb;
+	struct s2fs_sb_info *sbi = S2FS_SUPER(sb);
 	unsigned chunk_size = 64;
 	unsigned long pos = ctx->pos;
 	unsigned long offset;
@@ -79,7 +79,7 @@ static int s2fs_readdir(struct file *fp, struct dir_context *ctx)
 		p = kaddr + offset;
 		limit = kaddr + s2fs_last_byte(inode, n) - chunk_size;
 		printk("?HERE? %d", count++);
-		for ( ; p <= limit; p = s2fs_next_entry(p, sbii)) {
+		for ( ; p <= limit; p = s2fs_next_entry(p, sbi)) {
 			const char *name;
 			__u32 inumber;
 			struct s2fs_dir_record *de = (struct s2fs_dir_record *)p;

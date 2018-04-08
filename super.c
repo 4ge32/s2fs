@@ -5,22 +5,137 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/buffer_head.h>
+#include <linux/writeback.h>
 
 #include "s2fs.h"
 
-struct kmem_cache *s2fs_inode_info_cachep;
+struct kmem_cache *s2fs_inode_cachep;
+
+static void s2fs_truncate(struct inode * inode)
+{
+	if (!(S_ISREG(inode->i_mode) || S_ISDIR(inode->i_mode) || S_ISLNK(inode->i_mode)))
+		return;
+}
+
+static void s2fs_free_inode(struct inode *inode)
+{
+	return;
+}
+
+static struct s2fs_inode *s2fs_raw_inode(struct super_block *sb, ino_t ino,
+					 struct buffer_head **bh)
+{
+	struct s2fs_inode *p;
+
+	*bh = sb_bread(sb, S2FS_INODE_STORE_BLOCK_NUMBER);
+	if (!*bh)
+		return NULL;
+
+	p = (struct s2fs_inode *)(*bh)->b_data;
+	return (p += ino - 1);
+}
+
+static struct buffer_head *s2fs_update_inode(struct inode *inode)
+{
+	struct buffer_head *bh;
+	struct s2fs_inode *raw_inode;
+
+	raw_inode = s2fs_raw_inode(inode->i_sb, inode->i_ino, &bh);
+	if (!raw_inode) {
+		iget_failed(inode);
+		return ERR_PTR(-EIO);
+	}
+	inode->i_mode = raw_inode->i_mode;
+	raw_inode->i_mode = inode->i_mode;
+	raw_inode->i_uid = fs_high2lowuid(i_uid_read(inode));
+	raw_inode->i_gid = fs_high2lowgid(i_gid_read(inode));
+	raw_inode->i_nlinks = inode->i_nlink;
+	raw_inode->i_size = inode->i_size;
+	raw_inode->i_time = inode->i_mtime.tv_sec;
+	mark_buffer_dirty(bh);
+
+	return bh;
+}
+
+static struct inode *s2fs_alloc_inode(struct super_block *sb)
+{
+	struct s2fs_inode_info *ei;
+
+	ei = kmem_cache_alloc(s2fs_inode_cachep, GFP_KERNEL);
+	if (!ei)
+		return NULL;
+	return &ei->vfs_inode;
+}
+
+static void s2fs_i_callback(struct rcu_head *head)
+{
+	struct inode *inode = container_of(head, struct inode, i_rcu);
+	kmem_cache_free(s2fs_inode_cachep, s2fs_i(inode));
+}
+
+static void s2fs_destroy_inode(struct inode *inode)
+{
+	call_rcu(&inode->i_rcu, s2fs_i_callback);
+}
+
+static int s2fs_write_inode(struct inode *inode, struct writeback_control *wbc)
+{
+	int err = 0;
+	struct buffer_head *bh;
+
+	bh = s2fs_update_inode(inode);
+	if (!bh)
+		return -EIO;
+	if (wbc->sync_mode == WB_SYNC_ALL && buffer_dirty(bh)) {
+		sync_dirty_buffer(bh);
+		if (buffer_req(bh) && !buffer_uptodate(bh)) {
+			printk("IO error syncing s2fs inode [%s:%08lx]\n",
+				inode->i_sb->s_id, inode->i_ino);
+			err = -EIO;
+		}
+	}
+	brelse (bh);
+	return err;
+}
+
+static void s2fs_evict_inode(struct inode *inode)
+{
+	truncate_inode_pages_final(&inode->i_data);
+	if (!inode->i_nlink) {
+		inode->i_size = 0;
+		s2fs_truncate(inode);
+	}
+	invalidate_inode_buffers(inode);
+	clear_inode(inode);
+	if (!inode->i_nlink)
+		s2fs_free_inode(inode);
+}
+
+static void s2fs_put_super(struct super_block *sb)
+{
+	struct s2fs_sb_info *sbi = S2FS_SUPER(sb);
+
+	brelse(sbi->s_sbh);
+	sb->s_fs_info = NULL;
+	kfree(sbi);
+}
 
 static const struct super_operations s2fs_sops = {
+	.alloc_inode   = s2fs_alloc_inode,
+	.destroy_inode = s2fs_destroy_inode,
+	.write_inode   = s2fs_write_inode,
+	//.evict_inode   = s2fs_evict_inode,
+	.put_super     = s2fs_put_super,
 };
 
 static int init_inodecache(void)
 {
-	s2fs_inode_info_cachep = kmem_cache_create("s2fs_inode_info_cache",
+	s2fs_inode_cachep = kmem_cache_create("s2fs_inode_info_cache",
 					      sizeof(struct s2fs_inode_info),
 					      0, (SLAB_RECLAIM_ACCOUNT|
 						 SLAB_MEM_SPREAD|SLAB_ACCOUNT),
 					      NULL);
-	if (s2fs_inode_info_cachep == NULL)
+	if (s2fs_inode_cachep == NULL)
 		return -ENOMEM;
 	return 0;
 }
@@ -28,14 +143,14 @@ static int init_inodecache(void)
 static void destroy_inodecache(void)
 {
 	rcu_barrier();
-	kmem_cache_destroy(s2fs_inode_info_cachep);
+	kmem_cache_destroy(s2fs_inode_cachep);
 }
 
 static int s2fs_fill_super(struct super_block *sb, void *data, int s2lent)
 {
 	struct buffer_head *bh;
 	struct inode *root_inode;
-	struct s2fs_sbi_info *sbi;
+	struct s2fs_sb_info *sbi;
 	struct s2fs_sb *s2sb;
 	int ret = -EINVAL;
 
@@ -56,12 +171,6 @@ static int s2fs_fill_super(struct super_block *sb, void *data, int s2lent)
 	printk(KERN_INFO "The s_magic number obtained in disk is: [%x]\n",
 			sbi->s_magic);
 	printk(KERN_INFO "There are %u inodes\n", sbi->s_ninodes);
-
-	//if (unlikely(sbi->s_magic != S2FS_MAGIC))
-	//	goto s_magic_mismatch;
-
-	//if (unlikely(sbi->block_size != BLOCK_DEFAULT_SIZE))
-	//	goto bsize_mismatch;
 
 	/* fill superblock informatin */
 	sbi->s_s2sb = s2sb;

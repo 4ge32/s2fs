@@ -29,7 +29,7 @@ static void block_iterator()
 static int write_superblock(int fd)
 {
 	ssize_t ret;
-	struct s2fs_sbi_info sbi = {
+	struct s2fs_sb_info sbi = {
 		.s_version      = 0,
 		.s_magic        = S2FS_MAGIC,
 		.s_ninodes = 3,

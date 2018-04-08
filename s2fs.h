@@ -59,13 +59,15 @@ struct s2fs_inode_info {
 	uint32_t file_size;
 	uint32_t ref_count;
 	struct s2fs_dir_record *rec;
-	struct inode *vfs_inode;
+#ifndef MKFS
+	struct inode vfs_inode;
+#endif
 };
 
 /*
  * s2fs super-block data in memory
  */
-struct s2fs_sbi_info {
+struct s2fs_sb_info {
 	uint16_t s_version;
 	uint32_t s_magic;
 	uint32_t s_ninodes;
@@ -81,7 +83,7 @@ enum {
 	REGFILE,
 };
 
-extern struct kmem_cache *s2fs_inode_info_cachep;
+extern struct kmem_cache *s2fs_inode_cachep;
 
 extern const struct file_operations s2fs_dir_ops;
 extern const struct file_operations s2fs_file_ops;
@@ -95,12 +97,19 @@ int s2fs_get_inode_record(struct super_block *, struct s2fs_inode_info *);
 
 loff_t s2fs_file_llseek(struct file *, loff_t , int);
 
-static inline struct s2fs_sbi_info *S2FS_SUPER(struct super_block *sbi) {
-	return sbi->s_fs_info;
+static inline struct s2fs_sb_info *S2FS_SUPER(struct super_block *sb)
+{
+	return sb->s_fs_info;
 }
 
-static inline struct s2fs_inode_info *S2FS_INODE(struct inode *inode) {
+static inline struct s2fs_inode_info *S2FS_INODE(struct inode *inode)
+{
 	return inode->i_private;
+}
+
+static inline struct s2fs_inode_info *s2fs_i(struct inode *inode)
+{
+	return container_of(inode, struct s2fs_inode_info, vfs_inode);
 }
 #endif
 #endif
