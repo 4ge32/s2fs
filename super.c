@@ -8,19 +8,19 @@
 
 #include "s2fs.h"
 
-struct kmem_cache *s2fs_inode_cachep;
+struct kmem_cache *s2fs_inode_info_cachep;
 
 static const struct super_operations s2fs_sops = {
 };
 
 static int init_inodecache(void)
 {
-	s2fs_inode_cachep = kmem_cache_create("s2fs_inode_cache",
-					      sizeof(struct s2fs_inode),
+	s2fs_inode_info_cachep = kmem_cache_create("s2fs_inode_info_cache",
+					      sizeof(struct s2fs_inode_info),
 					      0, (SLAB_RECLAIM_ACCOUNT|
 						 SLAB_MEM_SPREAD|SLAB_ACCOUNT),
 					      NULL);
-	if (s2fs_inode_cachep == NULL)
+	if (s2fs_inode_info_cachep == NULL)
 		return -ENOMEM;
 	return 0;
 }
@@ -28,75 +28,76 @@ static int init_inodecache(void)
 static void destroy_inodecache(void)
 {
 	rcu_barrier();
-	kmem_cache_destroy(s2fs_inode_cachep);
+	kmem_cache_destroy(s2fs_inode_info_cachep);
 }
 
 static int s2fs_fill_super(struct super_block *sb, void *data, int s2lent)
 {
-	struct s2fs_sb *s2_sb;
 	struct buffer_head *bh;
 	struct inode *root_inode;
-	int ret = -EPERM;
+	struct s2fs_sbi_info *sbi;
+	struct s2fs_sb *s2sb;
+	int ret = -EINVAL;
+
+	sbi = kzalloc(sizeof(struct s2fs_sb_info *), GFP_KERNEL);
+	if (!sbi)
+		return -ENOMEM;
+	sb->s_fs_info = sbi;
+
+	if (!sb_set_blocksize(sb, BLOCK_DEFAULT_SIZE))
+		goto out_bad_hblock;
 
 	bh = sb_bread(sb, S2FS_SUPER_BLOCK_NUMBER);
 	if (!bh)
 		goto out_bad_sb;
 
-	s2_sb = (struct s2fs_sb *)bh->b_data;
+	s2sb = (struct s2fs_sb *)bh->b_data;
 
-	printk(KERN_INFO "The magic number obtained in disk is: [%x]\n",
-			s2_sb->magic);
-	printk(KERN_INFO "There are %u inodes\n", s2_sb->inodes_count);
+	printk(KERN_INFO "The s_magic number obtained in disk is: [%x]\n",
+			sbi->s_magic);
+	printk(KERN_INFO "There are %u inodes\n", sbi->s_ninodes);
 
-	if (unlikely(s2_sb->magic != S2FS_MAGIC))
-		goto magic_mismatch;
+	//if (unlikely(sbi->s_magic != S2FS_MAGIC))
+	//	goto s_magic_mismatch;
 
-	if (unlikely(s2_sb->block_size != BLOCK_DEFAULT_SIZE))
-		goto bsize_mismatch;
+	//if (unlikely(sbi->block_size != BLOCK_DEFAULT_SIZE))
+	//	goto bsize_mismatch;
 
 	/* fill superblock informatin */
-	sb->s_fs_info = s2_sb;
-	sb->s_magic = S2FS_MAGIC;
-	sb->s_blocksize = BLOCK_DEFAULT_SIZE;
+	sbi->s_s2sb = s2sb;
+	sbi->s_sbh = bh;
+	sbi->s_ninodes = s2sb->s_ninodes;
+	sbi->s_magic = s2sb->s_magic;
+	sbi->s_version = s2sb->s_version;
+
 	sb->s_op = &s2fs_sops;
 
 	/* Make root inode */
-	root_inode = new_inode(sb);
-	root_inode->i_ino = S2FS_ROOTDIR_INODE_NUMBER;
-	inode_init_owner(root_inode, NULL, S_IFDIR);
-	root_inode->i_sb = sb;
-	root_inode->i_op = &s2fs_inode_ops;
-	root_inode->i_fop = &s2fs_dir_ops;
-	root_inode->i_private = s2fs_get_inode(sb, S2FS_ROOTDIR_INODE_NUMBER);
-	root_inode->i_mode = S2FS_INODE(root_inode)->mode;
-	if (S2FS_INODE(root_inode) == NULL)
-		return -ENOMEM;
-	if (!S_ISDIR(root_inode->i_mode)) {
-		iput(root_inode);
-		return -EPERM;
-	}
+	ret = -ENOMEM;
+	root_inode = s2fs_iget(sb, S2FS_ROOT_INO);
+	if (IS_ERR(root_inode))
+		goto out_no_root;
 
 	sb->s_root = d_make_root(root_inode);
-	if (!sb->s_root) {
-		ret = -ENOMEM;
-		goto release;
-	}
+	if (!sb->s_root)
+		goto out_no_root;
 
 	printk(KERN_INFO "Fill superblock successfully\n");
+
 	return 0;
 
-bsize_mismatch:
-	printk(KERN_ERR "BLOCK SIZE MISMATCH\n");
-	goto out;
-magic_mismatch:
-	printk(KERN_ERR "MAGIC NUMBER MISMATCH\n");
-	goto out;
-release:
+out_no_root:
+	printk("s2fs: get root inode failed\n");
 	brelse(bh);
 	goto out;
 out_bad_sb:
 	printk("s2fs: unable to read superblock\n");
+	goto out;
+out_bad_hblock:
+	printk("s2fs: blocksize too small for device\n");
 out:
+	sb->s_fs_info = NULL;
+	kfree(sbi);
 	return ret;
 
 }

@@ -4,60 +4,104 @@
 
 #include "s2fs.h"
 
-static int s2fs_readdir(struct file *fp, struct dir_context *ctx) {
+static inline void dir_put_page(struct page *page)
+{
+	kunmap(page);
+	put_page(page);
+}
 
-	loff_t pos;
-	struct super_block *sb;
-	struct buffer_head *bh_inode;
-	struct s2fs_inode *s2_inode;
-	struct s2fs_inode *dir = S2FS_INODE(fp->f_path.dentry->d_inode);
-	int i;
+/*
+ * Return the offset into page `page_nr' of the last valid
+ * byte in that page, plus one.
+ */
+static unsigned
+s2fs_last_byte(struct inode *inode, unsigned long page_nr)
+{
+	unsigned last_byte = PAGE_SIZE;
 
-	pos = ctx->pos;
-	sb = fp->f_inode->i_sb;
-	if (pos)
+	if (page_nr == (inode->i_size >> PAGE_SHIFT))
+		last_byte = inode->i_size & (PAGE_SIZE - 1);
+	return last_byte;
+}
+
+static struct page * dir_get_page(struct inode *dir, unsigned long n)
+{
+	struct address_space *mapping = dir->i_mapping;
+	struct page *page = read_mapping_page(mapping, n, NULL);
+	if (!IS_ERR(page))
+		kmap(page);
+	return page;
+}
+
+static inline void *s2fs_next_entry(void *de, struct s2fs_sbi_info *sbii)
+{
+	return (void*)((char*)de + 64);
+}
+
+static int s2fs_readdir(struct file *fp, struct dir_context *ctx)
+{
+	struct inode *inode = file_inode(fp);
+	struct super_block *sbi = fp->f_inode->i_sb;
+	struct s2fs_sbi_info *sbii = S2FS_SUPER(sbi);
+	unsigned chunk_size = 64;
+	unsigned long pos = ctx->pos;
+	unsigned long offset;
+	unsigned long npages = dir_pages(inode);
+	unsigned long n;
+	static int count;
+
+	printk("DIR");
+	printk("DIR: I_SIZE %llu", inode->i_size);
+	printk("DIR: pos %lu", pos);
+
+	return 0;
+	printk("?HERE? %d", count++);
+	ctx->pos = pos = ALIGN(pos, chunk_size);
+	printk("?HERE? %d", count++);
+
+	if (pos >= inode->i_size)
 		return 0;
 
-	bh_inode = sb_bread(sb, S2FS_INODE_STORE_BLOCK_NUMBER);
-	s2_inode = (struct s2fs_inode *)bh_inode->b_data;
-	s2_inode += dir->inode_no;
+	offset = pos & ~PAGE_MASK;
+	n = pos >> PAGE_SHIFT;
 
+	printk("DIR: n %lu", n);
+	printk("DIR: napges %lu", npages);
 
-	dir_emit_dots(fp, ctx);
-	for (i = 0; i < dir->children_count; i++) {
-		if (!s2_inode->valid) {
-			s2_inode++;
+	for ( ; n < npages; n++, offset = 0) {
+		char *p, *kaddr, *limit;
+		struct page *page = dir_get_page(inode, n);
+		printk("?HERE? %d", count++);
+
+		if (IS_ERR(page))
 			continue;
+		kaddr = (char *)page_address(page);
+		p = kaddr + offset;
+		limit = kaddr + s2fs_last_byte(inode, n) - chunk_size;
+		printk("?HERE? %d", count++);
+		for ( ; p <= limit; p = s2fs_next_entry(p, sbii)) {
+			const char *name;
+			__u32 inumber;
+			struct s2fs_dir_record *de = (struct s2fs_dir_record *)p;
+			name = de->filename;
+			inumber = de->inode_no;
+			printk("DIR: %s", name);
+			if (inumber) {
+				unsigned l = strnlen(name, 100);
+				if (!dir_emit(ctx, name, l, inumber, DT_UNKNOWN)) {
+					dir_put_page(page);
+					return 0;
+				}
+			}
+			ctx->pos += chunk_size;
 		}
-		if (s2_inode->rec == NULL) {
-			s2fs_get_inode_record(sb, s2_inode);
-		}
-		if (s2_inode->rec != NULL) {
-			printk("READDIR: %s\n", s2_inode->rec->filename);
-			printk("READDIR: %p\n", &s2_inode->rec->filename);
-			printk("READDIR: %d\n", s2_inode->rec->inode_no);
-		}
-		if (!s2_inode->valid) {
-			s2_inode++;
-			continue;
-		}
-		if (!dir_emit(ctx, s2_inode->rec->filename, strlen(s2_inode->rec->filename),
-			                   s2_inode->rec->inode_no, DT_UNKNOWN))
-			goto out;
-
-		ctx->pos += sizeof(struct s2fs_dir_record);
-		pos += sizeof(struct s2fs_dir_record);
-		s2_inode++;
+		dir_put_page(page);
 	}
-
-
-out:
-	brelse(bh_inode);
-
 	return 0;
 }
 
 const struct file_operations s2fs_dir_ops = {
-	.iterate        = s2fs_readdir,
-	.llseek         = s2fs_file_llseek,
+	.iterate_shared = s2fs_readdir,
+	//.llseek         = generic_file_llseek,
+	//.read           = generic_read_dir,
 };

@@ -45,7 +45,7 @@ loff_t s2fs_file_llseek(struct file *fp, loff_t offset, int whence)
 
 static int s2fs_file_open(struct inode *inode, struct file *fp)
 {
-	struct s2fs_inode *s2_inode = S2FS_INODE(inode);
+	struct s2fs_inode_info *s2_inode = S2FS_INODE(inode);
 
 	s2_inode->ref_count++;
 
@@ -63,7 +63,7 @@ static int s2fs_file_open(struct inode *inode, struct file *fp)
 
 static int s2fs_file_release(struct inode *inode, struct file *fp)
 {
-	struct s2fs_inode *s2_inode = S2FS_INODE(inode);
+	struct s2fs_inode_info *s2_inode = S2FS_INODE(inode);
 
 	s2_inode->ref_count--;
 
@@ -72,7 +72,7 @@ static int s2fs_file_release(struct inode *inode, struct file *fp)
 
 static ssize_t s2fs_file_read(struct file *fp, char __user *buf, size_t len, loff_t *ppos)
 {
-	struct s2fs_inode *inode = S2FS_INODE(fp->f_path.dentry->d_inode);
+	struct s2fs_inode_info *inode = S2FS_INODE(fp->f_path.dentry->d_inode);
 	struct buffer_head *bh;
 	char *buffer;
 	int nbytes;
@@ -105,21 +105,21 @@ static ssize_t s2fs_file_read(struct file *fp, char __user *buf, size_t len, lof
 
 //static ssize_t s2fs_file_write(struct file *fp, const char __user *buf, size_t len, loff_t *ppos)
 //{
-//	struct s2fs_inode *s2_inode;
+//	struct s2fs_inode_info *s2_inode;
 //	struct inode *inode;
 //	struct buffer_head *bh;
-//	struct super_block *sb;
-//	struct s2fs_sb *s2_sb;
+//	struct super_block *sbi;
+//	struct s2fs_sbi_info *s2_sbi;
 //	char *buffer;
 //
 //	printk("WRITE - POS - FILE: %lld", fp->f_pos);
 //
-//	sb = fp->f_path.dentry->d_inode->i_sb;
-//	s2_sb = S2FS_SUPER(sb);
+//	sbi = fp->f_path.dentry->d_inode->i_sb;
+//	s2_sbi = S2FS_SUPER(sbi);
 //	inode = fp->f_path.dentry->d_inode;
 //	s2_inode = S2FS_INODE(inode);
 //
-//	bh = sb_bread(sb, s2_inode->data_block_number);
+//	bh = sb_bread(sbi, s2_inode->data_block_number);
 //	buffer = (char *)bh->b_data;
 //
 //	if (mutex_lock_interruptible(&s2fs_file_write_lock))
@@ -142,7 +142,7 @@ static ssize_t s2fs_file_read(struct file *fp, char __user *buf, size_t len, lof
 //
 //	mutex_unlock(&s2fs_file_write_lock);
 //
-//	s2fs_inode_save(sb, s2_inode);
+//	s2fs_inode_info_save(sbi, s2_inode);
 //
 //	return len;
 //}
@@ -260,6 +260,7 @@ ssize_t __s2fs_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 
 	printk("WRITE_ITER: NOT DIRECT IO!\n");
 	written = s2fs_perform_write(file, from, iocb->ki_pos);
+	printk("FILE WRITE: %lld", inode->i_size);
 	if (likely(written > 0))
 		iocb->ki_pos += written;
 out:

@@ -29,10 +29,10 @@ static void block_iterator()
 static int write_superblock(int fd)
 {
 	ssize_t ret;
-	struct s2fs_sb sb = {
-		.version      = 0,
-		.magic        = S2FS_MAGIC,
-		.inodes_count = 3,
+	struct s2fs_sbi_info sbi = {
+		.s_version      = 0,
+		.s_magic        = S2FS_MAGIC,
+		.s_ninodes = 3,
 		.block_size   = BLOCK_DEFAULT_SIZE,
 	};
 
@@ -40,8 +40,8 @@ static int write_superblock(int fd)
 
 	printf("Writing Superblock\n");
 
-	ret = write(fd, &sb, sizeof(sb));
-	if (ret != sizeof(sb)) {
+	ret = write(fd, &sbi, sizeof(sbi));
+	if (ret != sizeof(sbi)) {
 		printf("The super block was not written properly\n");
 		return 0;
 	}
@@ -52,10 +52,10 @@ static int write_superblock(int fd)
 static int write_rootinode(int fd)
 {
 	ssize_t ret;
-	struct s2fs_inode rootinode = {
+	struct s2fs_inode_info rootinode = {
 		rootinode.mode           = S_IFDIR | 0777,
 		rootinode.valid          = true,
-		rootinode.inode_no       = S2FS_ROOTDIR_INODE_NUMBER,
+		rootinode.inode_no       = S2FS_ROOT_INO,
 		rootinode.children_count = 2,
 	};
 
@@ -71,7 +71,7 @@ static int write_rootinode(int fd)
 
 }
 
-static int write_inode(int fd, struct s2fs_inode inode)
+static int write_inode(int fd, struct s2fs_inode_info inode)
 {
 	ssize_t ret;
 
@@ -136,11 +136,11 @@ int main(int argc, char *argv[])
 
 	struct s2fs_dir_record record = {
 		.filename = "TEST",
-		.inode_no = S2FS_ROOTDIR_INODE_NUMBER + 1,
+		.inode_no = S2FS_ROOT_INO + 1,
 	};
-	struct s2fs_inode inode = {
+	struct s2fs_inode_info inode = {
 		.mode = S_IFREG | 0666,
-		.inode_no = S2FS_ROOTDIR_INODE_NUMBER + 1,
+		.inode_no = S2FS_ROOT_INO + 1,
 		.data_block_number = S2FS_ROOTDIR_DATABLOCK_NUMBER,
 		.file_size = f_size,
 		.valid = true,
@@ -149,11 +149,11 @@ int main(int argc, char *argv[])
 
 	struct s2fs_dir_record record2 = {
 		.filename = "MEIG",
-		.inode_no = S2FS_ROOTDIR_INODE_NUMBER + 2,
+		.inode_no = S2FS_ROOT_INO + 2,
 	};
-	struct s2fs_inode inode2 = {
+	struct s2fs_inode_info inode2 = {
 		.mode = S_IFREG | 0666,
-		.inode_no = S2FS_ROOTDIR_INODE_NUMBER + 2,
+		.inode_no = S2FS_ROOT_INO + 2,
 		.data_block_number = S2FS_ROOTDIR_DATABLOCK_NUMBER + 1,
 		.file_size = f_size2,
 		.valid  = true,
@@ -179,6 +179,7 @@ int main(int argc, char *argv[])
 	lseek(fd, 0x1000, SEEK_SET);
 	if (!write_rootinode(fd))
 		goto out;
+	/*
 	if (!write_inode(fd, inode))
 		goto out;
 	if (!write_inode(fd, inode2))
@@ -195,6 +196,7 @@ int main(int argc, char *argv[])
 		goto out;
 	if (!write_block(fd, file_content2, f_size2))
 		goto out;
+	*/
 
 	printf("SUCCESS\n");
 	close(fd);
